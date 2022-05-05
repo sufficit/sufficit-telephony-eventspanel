@@ -1,6 +1,4 @@
-﻿using Sufficit.Asterisk;
-using Sufficit.Asterisk.Events;
-using Sufficit.Asterisk.Manager.Events;
+﻿using Sufficit.Asterisk.Manager.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,122 +7,47 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class EventsPanelCardMonitor : IChannelMatch, IEventsPanelCard
+    public abstract class EventsPanelCardMonitor : EventsPanelMonitor
     {
-        #region IMPLEMENT INTERFACE EVENTSPANEL CARD
+        private readonly EventsPanelMemoryCache<IManagerEvent> _buffer;
 
-        public bool Exclusive => _card.Exclusive;
+        private readonly EventsPanelCard _card;
 
-        public EventsPanelCardKind Kind => _card.Kind;
+        public EventsPanelCardMonitor(EventsPanelCard card, IKey content) : base(content)
+        {
+            _buffer = new EventsPanelMemoryCache<IManagerEvent>();
+            _card = card;
+
+            Channels = new ChannelInfoCollection();
+        }
 
         public string Label => _card.Label;
 
-        public string? Peer => _card.Peer;
-
-        #endregion
-
-        private readonly EventsPanelCard _card;
-        public EventsPanelCardMonitor(EventsPanelCard card)
-        {
-            _card = card;
-            Channels = new ChannelInfoCollection();
-            Channels.CollectionChanged += Channels_CollectionChanged;
-        }
-
-        public AsteriskChannelProtocol Protocol { get; set; }
-        public PeerStatus State { get; set; }
-        public string? Address { get; set; }
-
         public ChannelInfoCollection Channels { get; }
 
-        private void Channels_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            //if(Channels.Count == 0)            
-            Changed?.Invoke(this, State);
-        }
+        /// <summary>
+        /// Last event time of this monitor
+        /// </summary>
+        public DateTime MaxUpdate { get; set; }
 
-        public PeerStatusCauseEnum Cause { get; set; }
+        /// <summary>
+        /// First event time of this monitor
+        /// </summary>
+        public DateTime MinUpdate { get; set; }
 
-        public int? Time { get; set; }
-
-        public DateTime Update { get; set; }
-
-
-        public event EventHandler<PeerStatus>? Changed;
-
-        public async void Event(AMIPeerStatusEvent @event)
-        {
-            if (@event.DateReceived > Update)
-            {
-                Update = @event.DateReceived;
-                if (State != @event.PeerStatus
-                    || Address != @event.Address
-                    || Cause != @event.Cause
-                    || Time != @event.Time
-                    )
-                {
-                    State = @event.PeerStatus;
-                    Address = @event.Address;
-                    Cause = @event.Cause;
-                    Time = @event.Time;
-                    Changed?.Invoke(this, State);
-                }
-            }
-
-            await Task.CompletedTask;
-        }
-
-        public async void Event(PeerEntryEvent @event)
-        {
-            if (@event.DateReceived > Update)
-            {
-                Update = @event.DateReceived;
-                var currentState = @event.GetPeerStatus();
-
-                if (State != currentState)
-                {
-                    State = currentState;
-                    Changed?.Invoke(this, State);
-                }
-            }
-
-            await Task.CompletedTask;
-        }
-
-        public async void Event(IChannelEvent @event)
-        {
-            var channelId = @event.Channel;
-            var channel = Channels[channelId];
-            if (channel == null)
-            {
-                channel = new ChannelInfoMonitor(channelId);
-                Channels.Add(channel);
-            }
-
-            await channel.Event(@event);
-        }
-
-        public bool IsChannelMatch(string key)
+        public override bool IsMatch(string key)
         {
             if (!string.IsNullOrWhiteSpace(key))
             {
-                var keyNormalized = key.Trim().ToLowerInvariant();
-
                 #region CHECKING PEER IF EXISTS
 
-                if (_card.Peer != null)
-                {
-                    var peerNormalized = _card.Peer.Trim().ToLowerInvariant();
-                    if (!string.IsNullOrWhiteSpace(peerNormalized))
-                    {
-                        if (peerNormalized.Equals(keyNormalized))
-                            return true;
-                    }
-                }
+                if (base.IsMatch(key))
+                    return true;
 
                 #endregion
                 #region CHECKING CHANNELS
 
+                var keyNormalized = key.Trim().ToLowerInvariant();
                 foreach (var item in _card.Channels)
                 {
                     var match = new EventsPanelChannelMatch(item);
@@ -137,5 +60,35 @@ namespace Sufficit.Telephony.EventsPanel
 
             return false;
         }
+
+        /// <summary>
+        /// Get the underlaying card from that monitor <br />
+        /// Can be overrited
+        /// </summary>
+        public virtual EventsPanelCard Card => _card;
+
+        /// <summary>
+        /// Get the underlaying card from that monitor
+        /// </summary>
+        /// <param name="monitor"></param>
+
+        public static implicit operator EventsPanelCard(EventsPanelCardMonitor monitor)
+        {
+            return monitor._card;
+        }
+    }
+
+    public class EventsPanelCardMonitor<T> : EventsPanelCardMonitor where T : IKey
+    {
+        public new T Content => (T)base.Content;
+
+        public EventsPanelCardMonitor(EventsPanelCard card)
+            : base(card, new EmptyMonitor()) { }
+
+        public EventsPanelCardMonitor(EventsPanelCard card, T content)
+            : base(card, content!) { }
+
+        public static implicit operator T (EventsPanelCardMonitor<T> source)
+            => source.Content;
     }
 }

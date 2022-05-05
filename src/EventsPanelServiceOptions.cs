@@ -13,7 +13,6 @@ namespace Sufficit.Telephony.EventsPanel
 
         public EventsPanelServiceOptions()
         {
-            MaxButtons = 20;
             IgnoreLocal = true;
             Cards = new List<EventsPanelCard>();
         }

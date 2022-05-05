@@ -17,7 +17,5 @@ namespace Sufficit.Telephony.EventsPanel
         EventsPanelCardKind Kind { get; }
 
         string Label { get; }
-
-        string? Peer { get; }
     }
 }

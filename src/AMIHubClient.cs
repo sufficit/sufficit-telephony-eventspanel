@@ -2,6 +2,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager;
+using Sufficit.Asterisk.Manager.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -49,12 +50,19 @@ namespace Sufficit.Telephony.EventsPanel
                         .WithUrl(uri)
                         .WithAutomaticReconnect()
                         .Build();
-
+                    
                     Hub.Closed += _hub_Closed;
                     Hub.Reconnected += _hub_Reconnected;
                     Hub.Reconnecting += _hub_Reconnecting;
+                    Hub.On<string>("System", _hub_SystemMessage);
                 }
             }
+        }
+
+        private void _hub_SystemMessage(string? _)
+        {
+            if (OnChanged != null)
+                OnChanged.Invoke(this);
         }
 
         private async Task _hub_Reconnecting(Exception? arg)
@@ -85,16 +93,18 @@ namespace Sufficit.Telephony.EventsPanel
 
         #endregion
 
-        public IDisposable? Register<T>(Func<string, T, Task> action) where T : IEventBase, new()
+        public IDisposable? Register<T>(Func<string, T, Task> action) where T : IManagerEvent, new()
         {
-            var key = GetKey<T>();
+            var key = typeof(T).Name;
             _logger.LogInformation($"Registering key: {key}");
             return Hub?.On(key, action);
         }
 
-        private string GetKey<T>() where T : IEventBase, new()
+        public IDisposable? Register<T>(Action<string, T> action) where T : IManagerEvent, new()
         {
-            return new T().Key;
+            var key = typeof(T).Name;
+            _logger.LogInformation($"Registering key: {key}");
+            return Hub?.On(key, action);
         }
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -113,6 +123,12 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (Hub != null && Hub.State == HubConnectionState.Connected)    
                 await Hub.InvokeAsync("GetPeerStatus", cancellationToken);
+        }
+
+        public async Task GetQueueStatus(string queue, string member, CancellationToken cancellationToken = default)
+        {
+            if (Hub != null && Hub.State == HubConnectionState.Connected)
+                await Hub.InvokeAsync("GetQueueStatus", queue, member);
         }
     }
 }

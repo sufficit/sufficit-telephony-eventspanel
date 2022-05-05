@@ -1,24 +1,20 @@
-﻿using Sufficit.Asterisk;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System;
+using Sufficit.Asterisk;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class PeerInfo
+    public class PeerInfo : Peer, IKey
     {
-        public PeerInfo(string name)
-        {
-            Name = name;
-            Status = PeerStatus.Unknown;
-        }
+        #region IMPLEMENT INTERFACE KEY
 
-        public AsteriskChannelProtocol Protocol { get; set; }
-        public string Name { get; set; }
+        string IKey.Key => $"{ Protocol }/{ Name }";
+
+        #endregion
+
+        public PeerInfo(string key) : base(key) { }
         public PeerStatus Status { get; set; }
-
-        public string GetDial() => $"{Protocol}/{Name}";
+        public PeerUnreachableCause? Cause { get; set; }
+        public string? Address { get; set; }
+        public int? Time { get; set; }
     }
 }

@@ -8,42 +8,19 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class ChannelInfoCollection : ObservableCollection<ChannelInfoMonitor>
+    public class ChannelInfoCollection : GenericCollection<ChannelInfoMonitor>
     {
-        private readonly object _lock;
-        public ChannelInfoCollection()
+        public override async void ItemChanged(IMonitor? sender, object? state)
         {
-            _lock = new object();
-        }
-
-        protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
-        {
-            base.OnCollectionChanged(e);
-
-            if (e.NewItems != null) {
-                foreach (var item in e.NewItems.Cast<ChannelInfoMonitor>())
-                {
-                    item.Changed += Item_Changed;
-                } 
-            }
-        }
-
-        private async void Item_Changed(object? sender, Asterisk.AsteriskChannelState e)
-        {
-            if(sender is ChannelInfoMonitor monitor)
+            if (sender != null && sender is ChannelInfoMonitor monitor)
             {
-                if(monitor.Hangup != null)
+                var content = monitor.GetContent();
+                if (content.Hangup != null)
                 {
-                    await Task.Delay(5000);
-                    lock (_lock)
-                    {
-                        if (Contains(monitor)) { Remove(monitor); }
-                    }
+                    await Task.Delay(5000);                    
+                    Remove(monitor);                    
                 }
             }
         }
-
-        public ChannelInfoMonitor? this[string key] 
-            => this.FirstOrDefault(s => s.Id == key);
     }
 }

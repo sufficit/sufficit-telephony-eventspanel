@@ -8,14 +8,24 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class ChannelInfo
+    public class ChannelInfo : IKey
     {
-        public ChannelInfo(string id) => Id = id;
+        #region IMPLEMENT INTERFACE KEY
 
-        public string Id { get; set; }
+        public string Key { get; }
+
+        #endregion
+
+        public ChannelInfo(string key) => Key = key;
+
+        public DateTime Start { get; set; }
 
         public AsteriskChannelState State { get; set; }
 
         public Hangup? Hangup { get; set; }
+
+        public string? CallerIDNum { get; set; }
+
+        public string? CallerIDName { get; set; }
     }
 }

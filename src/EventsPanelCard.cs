@@ -16,13 +16,13 @@ namespace Sufficit.Telephony.EventsPanel
             Channels = new HashSet<string>();
         }
 
-        public EventsPanelCardKind Kind { get; set; }
+        public string? Key { get; set; }
+
+        public virtual EventsPanelCardKind Kind { get; set; }
 
         public HashSet<string> Channels { get; }
 
         public string Label { get; set; }
-
-        public string? Peer { get; set; }
 
         public bool Exclusive { get; set; }
     }

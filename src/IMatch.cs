@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public interface IChannelMatch
+    public interface IMatch
     {
         /// <summary>
         /// Indicates that the channel passed is match with these object <br />
@@ -14,6 +14,6 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        bool IsChannelMatch(string key);
+        bool IsMatch(string key);
     }
 }
