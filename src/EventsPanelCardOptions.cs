@@ -8,15 +8,15 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class EventsPanelCardOptions : ICollection<EventsPanelCard>
+    public class EventsPanelCardOptions : ICollection<EventsPanelCardInfo>
     {
         public const string SECTIONNAME = "Sufficit:Telephony:EventsPanel:Cards";
 
-        private readonly List<EventsPanelCard> _cards;
+        private readonly List<EventsPanelCardInfo> _cards;
 
         public EventsPanelCardOptions()
         {
-            _cards = new List<EventsPanelCard>();
+            _cards = new List<EventsPanelCardInfo>();
         }
 
         public int Count => _cards.Count;
@@ -25,15 +25,15 @@ namespace Sufficit.Telephony.EventsPanel
 
         public void Clear() => _cards.Clear();
 
-        public bool Contains(EventsPanelCard item) => _cards.Contains(item);
+        public bool Contains(EventsPanelCardInfo item) => _cards.Contains(item);
 
-        public void CopyTo(EventsPanelCard[] array, int arrayIndex) => _cards.CopyTo(array, arrayIndex);
+        public void CopyTo(EventsPanelCardInfo[] array, int arrayIndex) => _cards.CopyTo(array, arrayIndex);
 
-        public bool Remove(EventsPanelCard item) => _cards.Remove(item);
+        public bool Remove(EventsPanelCardInfo item) => _cards.Remove(item);
 
-        public IEnumerator<EventsPanelCard> GetEnumerator() => _cards.GetEnumerator();
+        public IEnumerator<EventsPanelCardInfo> GetEnumerator() => _cards.GetEnumerator();
 
-        public void Add(EventsPanelCard item) => _cards.Add(item);
+        public void Add(EventsPanelCardInfo item) => _cards.Add(item);
 
         IEnumerator IEnumerable.GetEnumerator() => _cards.GetEnumerator();
     }

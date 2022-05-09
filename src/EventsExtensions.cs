@@ -35,54 +35,57 @@ namespace Sufficit.Telephony.EventsPanel
             return source.DateReceived;
         }
 
-        public static EventsPanelCardMonitor ToCard(this IManagerEvent source, EventsPanelService service)
+        public static EventsPanelCard ToCard(this IManagerEvent source, EventsPanelService service)
         {
             switch (source)
             {
-                case PeerEntryEvent     mEvent: return ToCard(mEvent, service);
-                case PeerStatusEvent    mEvent: return ToCard(mEvent, service);
-                case IChannelEvent      mEvent: return ToCard(mEvent, service);
-                case IQueueEvent        mEvent: return ToCard(mEvent, service);
-                default: throw new NotImplementedException();
+                case IPeerStatus        mEvent: return HandleCardByEvent(mEvent, service);
+                case IChannelEvent      mEvent: return HandleCardByEvent(mEvent, service);
+                case IQueueEvent        mEvent: return HandleCardByEvent(mEvent, service);
+                default: throw new NotImplementedException($"{ source.GetType() } to card not implemented yet");
             }
         }
 
-        public static EventsPanelCardMonitor ToCard(this IQueueEvent source, EventsPanelService service)
+
+        public static EventsPanelCard HandleCardByEvent(this IQueueEvent source, EventsPanelService service)
         {
-            var card = new EventsPanelQueueCard();
-            card.Label = source.Queue;
-            return card.CardMonitor(service);
+            var cardinfo = new EventsPanelCardInfo();
+            cardinfo.Kind = EventsPanelCardKind.QUEUE;
+            cardinfo.Label = source.Queue;
+
+            return cardinfo.CardFromOptions(service);
         }
         
-        public static EventsPanelCardMonitor ToCard(this PeerStatusEvent source, EventsPanelService service)
+        public static EventsPanelCard HandleCardByEvent(this IPeerStatus source, EventsPanelService service)
         {
             var peerId = source.Peer;
-            var card = new EventsPanelCard();
-            card.Key = peerId;
-            card.Label = peerId;
-            card.Channels.Add($"^{ peerId }");
+            var cardinfo = new EventsPanelCardInfo();
+            cardinfo.Label = peerId;
+            cardinfo.Channels.Add($"^{ peerId }");
 
-            if (card.Label.Contains('/'))
+            if (cardinfo.Label.Contains('/'))
             {
-                var splitted = card.Label.Split('/');
-                card.Label = splitted[1];
+                var splitted = cardinfo.Label.Split('/');
+                cardinfo.Label = splitted[1];
             }
 
-            return card.CardMonitor(service);
+            return cardinfo.CardFromOptions(service);
         }
 
-        public static EventsPanelCardMonitor ToCard(this IChannelEvent source, EventsPanelService service)
+        public static EventsPanelCard HandleCardByEvent(this IChannelEvent source, EventsPanelService service)
         {
             var channel = new AsteriskChannel(source.Channel);
             var peerId = channel.GetPeer();
-            var card = new EventsPanelCard();
-            card.Label = channel.Name;
-            card.Channels.Add($"^{ peerId }");
 
-            return card.CardMonitor(service);
+            var cardinfo = new EventsPanelCardInfo();
+            cardinfo.Kind = EventsPanelCardKind.PEER;
+            cardinfo.Label = channel.Name;
+            cardinfo.Channels.Add($"^{ peerId }");
+
+            return cardinfo.CardFromOptions(service);
         }
 
-        public static EventsPanelCardMonitor ToCard(this PeerEntryEvent source, EventsPanelService service)
+        public static EventsPanelCard HandleCardByEvent(this PeerEntryEvent source, EventsPanelService service)
         {
             var info = new Asterisk.PeerInfo();
             info.Protocol = source.ChannelType;
@@ -90,45 +93,54 @@ namespace Sufficit.Telephony.EventsPanel
             
             var channel = new AsteriskChannel(info);
             var peerId = channel.GetPeer();
-            var card = new EventsPanelCard();
-            card.Label = channel.Name;
-            card.Channels.Add($"^{ peerId }");
+            var cardinfo = new EventsPanelCardInfo();
+            cardinfo.Kind = EventsPanelCardKind.PEER;
+
+            cardinfo.Label = channel.Name;
+            cardinfo.Channels.Add($"^{ peerId }");
 
             if (!string.IsNullOrWhiteSpace(source.Description))
-                card.Label = source.Description;
+                cardinfo.Label = source.Description;
 
-            return card.CardMonitor(service);
+            return cardinfo.CardMonitor(service);
         }
 
-        public static void Event(this EventsPanelService source, EventsPanelCardMonitor monitor, IManagerEventFromAsterisk @event)
+
+        /// <summary>
+        /// Where card exists
+        /// </summary>
+        /// <param name="source"></param>
+        /// <param name="card"></param>
+        /// <param name="event"></param>
+        public static void Event(this EventsPanelService source, EventsPanelCard card, IManagerEventFromAsterisk @event)
         {
             var timestamp = @event.GetTimeStamp();
-            if (monitor.MaxUpdate < timestamp)
+            if (card.MaxUpdate < timestamp)
             {
-                monitor.MaxUpdate = timestamp;
+                card.MaxUpdate = timestamp;
             }        
-            else if(monitor.MinUpdate > timestamp || monitor.MinUpdate == DateTime.MinValue)
+            else if(card.MinUpdate > timestamp || card.MinUpdate == DateTime.MinValue)
             {
-                monitor.MinUpdate = timestamp;                
+                card.MinUpdate = timestamp;                
             }
 
             if (@event is IChannelEvent eventChannel)
-                monitor.IChannelEvent(source.Channels, eventChannel);
+                card.IChannelEvent(source.Channels, eventChannel);
 
             if (@event is IPeerStatusEvent eventPeerStatus)
-                monitor.IPeerStatusEvent(eventPeerStatus);
+                card.IPeerStatusEvent(eventPeerStatus);
 
             if (@event is IQueueEvent eventQueue)
-                monitor.IQueueEvent(eventQueue);
+                card.IQueueEvent(eventQueue);
 
             switch (@event)
             {
-                case PeerEntryEvent newEvent: monitor.Event(newEvent); break;
+                case PeerEntryEvent newEvent: card.Monitor?.Event(newEvent); break;
                 default: break;
             }            
         }
         
-        public static void IChannelEvent(this EventsPanelCardMonitor source, ChannelInfoCollection channels, IChannelEvent @event)
+        public static void IChannelEvent(this EventsPanelCard source, ChannelInfoCollection channels, IChannelEvent @event)
         {
             var channelId = @event.Channel;
             var channel = source.Channels[channelId];
@@ -139,35 +151,39 @@ namespace Sufficit.Telephony.EventsPanel
                     throw new InvalidOperationException("null channel on card");
                 
                 source.Channels.Add(channel);
-                source.Event(@event);
+                source.Monitor?.Event(@event);
             }
         }
 
-        public static void IPeerStatusEvent(this EventsPanelCardMonitor source, IPeerStatusEvent @event)
+        public static void IPeerStatusEvent(this EventsPanelCard source, IPeerStatusEvent @event)
         {
-            PeerInfo content = source.Content<PeerInfoMonitor>()!;                
-            if (content.Status != @event.PeerStatus
-                || content.Address != @event.Address
-                || content.Cause != @event.Cause
-                || content.Time != @event.Time
-                )
+            if (source.IsMonitored)
             {
-                content.Status = @event.PeerStatus;
-                content.Address = @event.Address;
-                content.Cause = @event.Cause;
-                content.Time = @event.Time;
+                PeerInfo? content = source.Content<PeerInfo?>();
+                if (content != null && 
+                    ( content.Status != @event.PeerStatus
+                    || content.Address != @event.Address
+                    || content.Cause != @event.Cause
+                    || content.Time != @event.Time
+                    ))
+                {
+                    content.Status = @event.PeerStatus;
+                    content.Address = @event.Address;
+                    content.Cause = @event.Cause;
+                    content.Time = @event.Time;
 
-                source.Event(@event);
-            }            
+                    source.Monitor?.Event(@event);
+                }
+            }
         }
 
-        public static void IQueueEvent(this EventsPanelCardMonitor source, IQueueEvent @event)
+        public static void IQueueEvent(this EventsPanelCard source, IQueueEvent @event)
         { 
-            source.Event(@event);            
+            source.Monitor?.Event(@event);            
         }
 
         /*
-        public static void Event(this EventsPanelCardMonitor source, PeerEntryEvent @event)
+        public static void Event(this EventsPanelCard source, PeerEntryEvent @event)
         {
             var currentState = @event.GetPeerStatus();
             var content = source.Content<PeerInfo>();

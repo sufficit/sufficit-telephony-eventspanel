@@ -7,19 +7,18 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class EventsPanelQueueCard : EventsPanelCard
+    public class EventsPanelQueueCard : EventsPanelCard<QueueInfo>
     {
-        public override EventsPanelCardKind Kind => EventsPanelCardKind.QUEUE;
+        public new QueueInfoMonitor? Monitor => (QueueInfoMonitor?)base.Monitor;
 
-        public EventsPanelQueueCard() { }
-
-        public EventsPanelQueueCard(EventsPanelCard source)
+        public EventsPanelQueueCard(EventsPanelCardInfo card) : base(card)
         {
-            this.Label = source.Label;
-            this.Exclusive = source.Exclusive;
-            
-            foreach(var s in source.Channels)
-                this.Channels.Add(s);
+
+        }
+
+        public EventsPanelQueueCard(EventsPanelCardInfo card, QueueInfoMonitor monitor) : base(card, monitor)
+        {
+
         }
     }
 }

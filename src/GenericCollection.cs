@@ -190,11 +190,11 @@ namespace Sufficit.Telephony.EventsPanel
 
         public IEnumerator<T> GetEnumerator()
         {
-            lock (_lockValues)
-                return _items.Values.GetEnumerator();
+            lock(_lockKeys)
+                lock (_lockValues)
+                    return _items.Values.GetEnumerator();
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-
     }
 }

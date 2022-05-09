@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Sufficit.Asterisk;
+using Sufficit.Asterisk.Manager.Events;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,7 +11,7 @@ namespace Sufficit.Telephony.EventsPanel
     {
         #region IMPLEMENT INTERFACE MONITOR
 
-        public string Key => Interface;
+        string IKey.Key => Interface;
 
         public event IMonitor.AsyncEventHandler? OnChanged;
 
@@ -30,11 +32,11 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public string? Membership { get; set; }
 
-        public string? Title { get; set; }
-        public int Penalty { get; set; }
-        public int CallsTaken { get; set; }
+        public string? Name { get; set; }
+        public uint Penalty { get; set; }
+        public uint CallsTaken { get; set; }
         public double LastCall { get; set; }
-        public int Status { get; set; }
+        public AsteriskDeviceStatus Status { get; set; }
         public bool Paused { get; set; }
         public bool InCall { get; set; }
         public string? PausedReason { get; set; }
@@ -46,5 +48,32 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public DateTime Updated { get; set; }
 
+        public void Event(IQueueMemberEvent @event)
+        {
+            bool ShouldUpdate = false;
+            var timestamp = @event.GetTimeStamp();
+            if (timestamp > Updated)
+            {
+                Updated = timestamp;
+                if (@event is IQueueMemberStatusEvent statusEvent)
+                    Handle(this, statusEvent);
+            }
+
+            if (ShouldUpdate && OnChanged != null)
+                OnChanged.Invoke(this, null);
+        }
+
+        public static void Handle(QueueAgentInfo source, IQueueMemberStatusEvent eventObj)
+        {
+            source.Name = eventObj.MemberName;
+            source.Membership = eventObj.Membership;
+            source.Penalty = eventObj.Penalty;
+            source.CallsTaken = eventObj.CallsTaken;
+            source.LastCall = eventObj.LastCall;
+            source.Status = eventObj.Status;
+            source.Paused = eventObj.Paused;
+            source.InCall = eventObj.InCall;
+            source.PausedReason = eventObj.PausedReason;
+        }
     }
 }

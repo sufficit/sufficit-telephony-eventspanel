@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public interface IEventsPanelCard
+    public interface IEventsPanelCardInfo
     {
         /// <summary>
         /// This card has exclusivity to its channels <br />

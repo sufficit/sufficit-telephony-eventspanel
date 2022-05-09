@@ -8,33 +8,14 @@ namespace Sufficit.Telephony.EventsPanel
 {
     public static class EventsPanelCardExtensions
     {
-        /*
-        public static IEventsPanelHandler Handler(this EventsPanelCard source)
-        {            
-            switch (source.Kind)
-            {
-                case EventsPanelCardKind.QUEUE:     return new QueueInfoMonitor(source);
-                case EventsPanelCardKind.PEER:      return new PeerInfoMonitor(source.Key);
-                case EventsPanelCardKind.TRUNK:     return new PeerInfoMonitor(source.Key);
-                default: throw new NotImplementedException();
-            }            
-        }
-        */
-
-        public static bool IsValidPeer(string s)
+        public static string? GetPeerKey(this EventsPanelCardInfo source)
         {
-            if (!string.IsNullOrWhiteSpace(s))
-            {
-
-            }
-            return false;
-        }
-
-        public static string? GetPeer(this EventsPanelCard source)
-        {
+            /*
             if (!string.IsNullOrWhiteSpace(source.Key))
                 return source.Key;
-            else if (source.Channels.Count == 1)
+            
+            else*/
+            if (source.Channels.Count == 1 && source.Exclusive)
             {
                 string s = source.Channels.First();
                 s = s.TrimStart('^');
@@ -44,31 +25,95 @@ namespace Sufficit.Telephony.EventsPanel
             return null;
         }
 
-        public static EventsPanelCardMonitor CardMonitor(this EventsPanelCard source, EventsPanelService service)
+
+        public static string GetQueueKey(this EventsPanelCardInfo source)
+        {
+            /*
+            if (!string.IsNullOrWhiteSpace(source.Key))
+                return source.Key;
+            
+            else*/
+            return source.Label;
+        }
+
+        public static EventsPanelCard CardFromOptions(this EventsPanelCardInfo source, EventsPanelService service)
         {
             switch (source.Kind)
             {
-                case EventsPanelCardKind.QUEUE: return new EventsPanelCardMonitor<QueueInfoMonitor>(source, new QueueInfoMonitor(source.Label));
-                case EventsPanelCardKind.PEER:
-                case EventsPanelCardKind.TRUNK:
+                case EventsPanelCardKind.QUEUE:
                     {
-                        string? key  = source.GetPeer();
+                        var key = source.GetQueueKey();
+                        var monitor = EventsPanelService.Monitor(service.Queues, key);
+                        return new EventsPanelQueueCard(source, monitor);
+                    }
+                case EventsPanelCardKind.PEER:
+                    {
+                        var key = source.GetPeerKey();
                         if (key != null)
                         {
-                            var monitor = service.Peers[key];
-                            if (monitor == null)
-                            {
-                                monitor = new PeerInfoMonitor(key);
-                                service.Peers.Add(monitor);
-                            }
-                            return new EventsPanelCardMonitor<PeerInfoMonitor>(source, monitor);
+                            var monitor = EventsPanelService.Monitor(service.Peers, key);
+                            return new EventsPanelPeerCard(source, monitor);
+                        } else
+                            return new EventsPanelPeerCard(source);
+                    }
+                case EventsPanelCardKind.TRUNK:
+                    {
+                        var key = source.GetPeerKey();
+                        if (key != null)
+                        {
+                            var monitor = EventsPanelService.Monitor(service.Peers, key);
+                            return new EventsPanelTrunkCard(source, monitor);
                         }
-                        return new EventsPanelCardMonitor<PeerInfoMonitor>(source);
+                        else
+                            return new EventsPanelTrunkCard(source);
                     }
                 default: throw new NotImplementedException();
             }
         }
 
-        public static T Content<T>(this EventsPanelCardMonitor source) => (T)source.Content;
+
+        public static EventsPanelCard CardMonitor(this EventsPanelCardInfo source, EventsPanelService service)
+        {
+            switch (source.Kind)
+            {
+                case EventsPanelCardKind.QUEUE:
+                    {
+                        var key = source.GetQueueKey();
+                        var monitor = service.Queues[key];
+                        if (monitor != null)
+                            return new EventsPanelQueueCard(source, monitor);
+                        else throw new InvalidDataException($"invalid key: {key}, for queue.");
+                    }
+                case EventsPanelCardKind.PEER:
+                    {
+                        var key = source.GetPeerKey();
+                        if (key != null)
+                        {
+                            var monitor = service.Peers[key];
+                            if (monitor != null)
+                                return new EventsPanelPeerCard(source, monitor);
+                            else throw new InvalidDataException($"invalid key: {key}, for peer.");
+                        }
+                        else
+                            return new EventsPanelPeerCard(source);
+                    }
+                case EventsPanelCardKind.TRUNK:
+                    {
+                        var key = source.GetPeerKey();
+                        if (key != null)
+                        {
+                            var monitor = service.Peers[key];
+                            if (monitor != null)
+                                return new EventsPanelTrunkCard(source, monitor);
+                            else throw new InvalidDataException($"invalid key: {key}, for trunk peer.");
+                        }
+                        else
+                            return new EventsPanelTrunkCard(source);
+                    }
+                default: throw new NotImplementedException();
+            }
+        }
+
+        public static T? Content<T>(this EventsPanelCard source) => (T?)source.Monitor?.Content;
     }
 }

@@ -23,18 +23,21 @@ namespace Sufficit.Telephony.EventsPanel
             Content = content;
         }
 
-        public virtual void Event(object @event)
-        {
-            if (OnChanged != null)
-                OnChanged(this, @event);
-        }
+        public virtual void StateHasChanged() => OnChanged?.Invoke(this, null);
 
+        public virtual void Event(object @event) => OnChanged?.Invoke(this, @event);
+
+        /// <summary>
+        /// Should match to peer or queue to show in card
+        /// </summary>
+        /// <param name="match"></param>
+        /// <returns></returns>
         public virtual bool IsMatch(string match)
         {
             var peerNormalized = Key.Trim().ToLowerInvariant();
             if (!string.IsNullOrWhiteSpace(peerNormalized))
             {
-                if (peerNormalized.Equals(match))
+                if (peerNormalized.Equals(match, StringComparison.InvariantCultureIgnoreCase))
                     return true;
             }
             return false;

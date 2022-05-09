@@ -19,20 +19,14 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (!string.IsNullOrWhiteSpace(key))
             {
-                var splitted = key.Split('/');
-                var tech = splitted[0];
-                Protocol = AsteriskChannelExtensions.ToAsteriskChannelProtocol(tech);
-
-                var track = splitted[1];
-                var separator = track.LastIndexOf('-');
-                if (separator > -1)
+                if (key.Contains('/'))
                 {
-                    Name = track.Substring(0, separator);
+                    var splitted = key.Split('/');
+                    var tech = splitted[0];
+                    Protocol = AsteriskChannelExtensions.ToAsteriskChannelProtocol(tech);
+                    Name = splitted[1];
                 }
-                else
-                {
-                    Name = track;
-                }
+                else Name = key; 
             }
             else { throw new ArgumentNullException("key"); }
         }

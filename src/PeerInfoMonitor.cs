@@ -16,7 +16,7 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (@event is IPeerStatus newEvent)
             {
-                //Console.WriteLine($"IPeerStatus({ @event.GetType() }): { newEvent.Peer } :: { newEvent.PeerStatus }");
+                // Console.WriteLine($"IPeerStatus({ @event.GetType() }): { newEvent.Peer } :: { newEvent.PeerStatus }");
                 var currentState = newEvent.PeerStatus;
                 if (Content.Status != currentState)
                 {

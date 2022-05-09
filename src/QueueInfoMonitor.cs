@@ -8,21 +8,26 @@ namespace Sufficit.Telephony.EventsPanel
 {
     public class QueueInfoMonitor : EventsPanelMonitor<QueueInfo>
     {
+        /// <summary>
+        /// Events count
+        /// </summary>
+        public uint Count { get; internal set; }
+
         public QueueInfoMonitor(string key) : base(new QueueInfo(key)) { }
 
         #region IMPLEMENT ABSTRACT MONITOR CONTENT
 
         public override void Event(object @event)
         {
-            var content = GetContent();
+            Count++;
             switch (@event)
             {
-                case QueueMemberStatusEvent newEvent:       Handle(content, newEvent); break;
-                case QueueParamsEvent newEvent:             Handle(content, newEvent); break;
-                case QueueMemberEvent newEvent:             Handle(content, newEvent); break;
-                case QueueCallerJoinEvent newEvent:         Handle(content, newEvent); break;
-                case QueueCallerLeaveEvent newEvent:        Handle(content, newEvent); break;
-                case QueueCallerAbandonEvent newEvent:      Handle(content, newEvent); break;
+                case QueueMemberStatusEvent newEvent:       Handle(Content, newEvent); break;
+                case QueueParamsEvent newEvent:             Handle(Content, newEvent); break;
+                case QueueMemberEvent newEvent:             Handle(Content, newEvent); break;
+                case QueueCallerJoinEvent newEvent:         Handle(Content, newEvent); break;
+                case QueueCallerLeaveEvent newEvent:        Handle(Content, newEvent); break;
+                case QueueCallerAbandonEvent newEvent:      Handle(Content, newEvent); break;
                 default: break;
             }
 
@@ -32,60 +37,33 @@ namespace Sufficit.Telephony.EventsPanel
 
         #endregion
 
-        public static void Handle(QueueInfo source, QueueMemberEvent eventObj)
+        static void Handle(QueueInfo source, QueueMemberEvent eventObj)
         {
-            QueueAgentInfo? status = source.Agents.FirstOrDefault(s => s.Interface == eventObj.Location);
+            // finding agent
+            QueueAgentInfo? status = source.Agents.FirstOrDefault(s => ((IKey)s).Key == eventObj.Interface);
             if (status == null)
             {
-                status = new QueueAgentInfo(eventObj.Location);
+                //creating new agent
+                status = new QueueAgentInfo(eventObj.Interface);
                 source.Agents.Add(status);
             }
 
-            if (eventObj.DateReceived > status.Updated)
-            {
-                status.Updated = eventObj.DateReceived;
-                status.Title = eventObj.Name;
-                status.Membership = eventObj.Membership;
-                status.Penalty = eventObj.Penalty;
-                status.CallsTaken = eventObj.CallsTaken;
-                status.LastCall = eventObj.LastCall;
-                status.Status = eventObj.Status;
-                status.Paused = eventObj.Paused;
-                status.InCall = eventObj.InCall;
-                status.PausedReason = eventObj.PausedReason;
-
-                //status.LastPause = eventObj.LastPause;
-                //status.WrapUpTime = eventObj.WrapUpTime;
-            }
+            status.Event(eventObj);
         }
 
-        public static void Handle(QueueInfo source, QueueMemberStatusEvent eventObj)
+        static void Handle(QueueInfo source, QueueMemberStatusEvent eventObj)
         {
-            QueueAgentInfo? status = source.Agents.FirstOrDefault(s => s.Interface == eventObj.Interface);
+            QueueAgentInfo? status = source.Agents.FirstOrDefault(s => ((IKey)s).Key == eventObj.Interface);
             if (status == null)
             {
                 status = new QueueAgentInfo(eventObj.Interface);
                 source.Agents.Add(status);
             }
 
-            if (eventObj.DateReceived > source.Updated)
-            {
-                status.Updated = eventObj.DateReceived;
-                status.Title = eventObj.MemberName;
-                status.Membership = eventObj.Membership;
-                status.Penalty = eventObj.Penalty;
-                status.CallsTaken = eventObj.CallsTaken;
-                status.LastCall = eventObj.LastCall;
-                status.Status = eventObj.Status;
-                status.Paused = eventObj.Paused;
-                status.InCall = eventObj.InCall;
-                status.PausedReason = eventObj.PausedReason;
-                //status.LastPause = eventObj.LastPause;
-                //status.WrapUpTime = eventObj.WrapUpTime;
-            }
+            status.Event(eventObj);
         }
 
-        public static void Handle(QueueInfo source, QueueParamsEvent eventObj)
+        static void Handle(QueueInfo source, QueueParamsEvent eventObj)
         {
             if (eventObj.DateReceived > source.Updated)
             {
@@ -98,13 +76,11 @@ namespace Sufficit.Telephony.EventsPanel
                 source.Completed = eventObj.Completed;
                 source.Abandoned = eventObj.Abandoned;
                 source.ServiceLevel = eventObj.ServiceLevel;
-                //ServiceLevelPerf = eventObj.ServiceLevelPerf;
                 source.Weight = eventObj.Weight;
-                //TalkTime = eventObj.TalkTime;
             }
         }
 
-        public static void Handle(QueueInfo source, QueueCallerJoinEvent eventObj)
+        static void Handle(QueueInfo source, QueueCallerJoinEvent eventObj)
         {
             if (eventObj.DateReceived > source.Updated)
             {
@@ -113,7 +89,7 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        public static void Handle(QueueInfo source, QueueCallerLeaveEvent eventObj)
+        static void Handle(QueueInfo source, QueueCallerLeaveEvent eventObj)
         {
             if (eventObj.DateReceived > source.Updated)
             {
@@ -122,7 +98,7 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        public static void Handle(QueueInfo source, QueueCallerAbandonEvent eventObj)
+        static void Handle(QueueInfo source, QueueCallerAbandonEvent eventObj)
         {
             if (eventObj.DateReceived > source.Updated)
             {

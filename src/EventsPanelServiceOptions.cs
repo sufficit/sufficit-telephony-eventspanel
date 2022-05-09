@@ -7,15 +7,24 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class EventsPanelServiceOptions : IEquatable<EventsPanelServiceOptions>
+    public class EventsPanelServiceOptions : IEquatable<EventsPanelServiceOptions>, IEventsPanelOptions
     {
         public const string SECTIONNAME = "Sufficit:Telephony:EventsPanel";
 
         public EventsPanelServiceOptions()
         {
             IgnoreLocal = true;
-            Cards = new List<EventsPanelCard>();
+            ShowTrunks = true;
+            Cards = new List<EventsPanelCardInfo>();
         }
+
+        /// <summary>
+        /// Value in Milliseconds <br />  
+        /// If RefreshRate == 0, FastReload, RealTime operation, may crash WASM 
+        /// </summary>
+        public uint RefreshRate { get; set; }
+
+        public bool ShowTrunks { get; set; }
 
         public int MaxButtons { get; set; }
 
@@ -23,10 +32,12 @@ namespace Sufficit.Telephony.EventsPanel
 
         public bool IgnoreLocal { get; set; }
 
-        public ICollection<EventsPanelCard> Cards { get; }
+        public ICollection<EventsPanelCardInfo> Cards { get; }
 
         public bool Equals(EventsPanelServiceOptions? other)
             => other != null && 
+            other.RefreshRate == RefreshRate &&
+            other.ShowTrunks == ShowTrunks &&
             other.MaxButtons == MaxButtons &&
             other.AutoFill == AutoFill &&
             other.IgnoreLocal == IgnoreLocal;        

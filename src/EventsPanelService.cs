@@ -12,10 +12,11 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using static Sufficit.Telephony.EventsPanel.IMonitor;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public partial class EventsPanelService : IHostedService
+    public partial class EventsPanelService : IHostedService, IMonitor
     {
         private readonly ILogger _logger;
         private AMIHubClient? _client;
@@ -51,7 +52,6 @@ namespace Sufficit.Telephony.EventsPanel
             }
 
             Panel = new Panel(_cards);
-
             var monitor = _provider.GetService<IOptionsMonitor<EventsPanelServiceOptions>>();
             OnConfigure(monitor?.CurrentValue);
             monitor.OnChange(OnConfigure);                        
@@ -63,6 +63,9 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if(client != null && !client.Equals(_client))
             {
+                if(_client != null)                
+                    _client.Dispose();                
+
                 _client = client;
                 _client.OnChanged += _client_OnChanged;
 
@@ -102,39 +105,35 @@ namespace Sufficit.Telephony.EventsPanel
 
             try
             {
+                HashSet<string> cardKeys = new HashSet<string>();
                 if (@event is IChannelEvent eventChannel)
-                    _ = HandleEvent(this, eventChannel);
+                    cardKeys.Add(HandleEvent(this, eventChannel));
 
                 if (@event is IPeerStatus peerStatusEvent)
-                    _ = HandleEvent(this, peerStatusEvent);
+                    cardKeys.Add(HandleEvent(this, peerStatusEvent));
 
                 if (@event is IQueueEvent eventQueue)
-                    _ = HandleEvent(this, eventQueue);                    
-                                
-                switch (@event)
-                {
-                    case QueueEvent newEvent: QueueEventHandler(sender, newEvent); break;
-                    case PeerStatusEvent newEvent: PeerStatusEventHandler(sender, newEvent); break;
-                    case NewChannelEvent newEvent: NewChannelEventHandler(sender, newEvent); break;
-                    case NewStateEvent newEvent: NewStateEventHandler(sender, newEvent); break;
-                    case HangupEvent newEvent: HangupEventHandler(sender, newEvent); break;
-                    case StatusEvent newEvent: StatusEventHandler(sender, newEvent); break;
-                    case PeerEntryEvent newEvent: PeerEntryEventHandler(sender, newEvent); break;
-                    default: break;
-                }                
+                    cardKeys.Add(HandleEvent(this, eventQueue));
+
+                var cards = new HashSet<EventsPanelCard>();
+                foreach (var key in cardKeys)
+                    foreach (var card in HandlerCard(key, @event))
+                        cards.Add(card);
+
+                foreach (var card in cards)
+                    this.Event(card, @event);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "error on receive event");
+                _logger.LogError(ex, $"error on receive event: { @event.GetType() }, from: { sender }");
             }
         }
 
         public event EventHandler<IManagerEventFromAsterisk>? OnEvent;
 
         private void _client_OnChanged(AMIHubClient _)
-        {
-            if (OnChanged != null)            
-                OnChanged.Invoke();            
+        {          
+            OnChanged?.Invoke(this, null);            
         }
 
         public EventsPanelServiceOptions? Options { get; internal set; }
@@ -146,15 +145,18 @@ namespace Sufficit.Telephony.EventsPanel
                 Options = options;
                 if (Options.Cards.Any())
                 {
-                    Panel.Cards.Clear();
+                    _cards.Clear();
                     foreach (var card in Options.Cards)
-                    {
-                        var cardMonitor = card.CardMonitor(this);
-                        Panel.Cards.Add(cardMonitor);
+                    {                        
+                        var cardMonitor = EventsPanelCardExtensions.CardFromOptions(card, this);
+                        _cards.Add(cardMonitor);
                     }
                 }
 
+                Panel.Update(Options);
                 _logger.LogInformation($"Configuração atualizada, Max Buttons: { Options.MaxButtons }");
+
+                OnChanged?.Invoke(this, null);
             }
         }
 
@@ -170,7 +172,7 @@ namespace Sufficit.Telephony.EventsPanel
                 }
                 catch (Exception) {
                     if (OnChanged != null)
-                        OnChanged.Invoke();
+                        OnChanged.Invoke(this, null);
                     
                     throw;
                 }
@@ -191,31 +193,31 @@ namespace Sufficit.Telephony.EventsPanel
 
         protected bool ShouldIgnore => Options == null || Options.IgnoreLocal;
 
-        protected bool ShouldFillPeers => false; 
+        protected bool ShouldFillPeers => ShouldFill; 
 
-        protected IEnumerable<EventsPanelCardMonitor> HandleCardByKey(string key)
+        protected IEnumerable<EventsPanelCard> HandleCardByKey(string key)
         {
             int count = 0;
             foreach (var card in _cards[key])
             {
                 count++;
                 yield return card;
-                if (card.Card.Exclusive) yield break;
+                if (card.Info.Exclusive) yield break;
             }
         }
 
-        protected IEnumerable<EventsPanelCardMonitor> HandlerCard(string key, IManagerEvent eventObj)
+        protected IEnumerable<EventsPanelCard> HandlerCard(string key, IManagerEvent eventObj)
         {
             var cards = HandleCardByKey(key);
             if (cards.Any()) return cards;
                       
-            if (!ShouldFill) return Array.Empty<EventsPanelCardMonitor>();
+            if (!ShouldFill) return Array.Empty<EventsPanelCard>();
 
             var cardMonitor = eventObj.ToCard(this);
 
             //ignoring peers auto fill
-            if (!ShouldFillPeers && cardMonitor.Card.Kind == EventsPanelCardKind.PEER)
-                return Array.Empty<EventsPanelCardMonitor>();
+            if (!ShouldFillPeers && cardMonitor.Info.Kind == EventsPanelCardKind.PEER)
+                return Array.Empty<EventsPanelCard>();
 
             _cards.Add(cardMonitor); // include global
 
@@ -226,7 +228,7 @@ namespace Sufficit.Telephony.EventsPanel
         {
             var key = $"{ eventObj.ChannelType }/{ eventObj.ObjectName }";
             foreach (var card in HandlerCard(key, eventObj))
-                card.Event(eventObj);
+                this.Event(card, eventObj);
         }
 
         protected void StatusEventHandler(string sender, StatusEvent eventObj)
@@ -289,9 +291,17 @@ namespace Sufficit.Telephony.EventsPanel
         protected void QueueEventHandler(string sender, QueueEvent eventObj)
         {
             foreach (var card in HandlerCard(eventObj.Queue, eventObj))
-                this.Event(card, eventObj);
-        }
-        
+            {
+                if (!card.IsMonitored)
+                {
+                    _logger.LogInformation($"({sender}) card not monitored");
+                }
+                else
+                {
+                    this.Event(card, eventObj);
+                }
+            }
+        }        
 
         #endregion
 
@@ -307,8 +317,6 @@ namespace Sufficit.Telephony.EventsPanel
 
         public event AsyncEventHandler? OnChanged;
 
-        public delegate void AsyncEventHandler();
-
         public async Task GetPeerStatus(CancellationToken cancellationToken = default)
         {
             if (_client != null && _client.State == HubConnectionState.Connected)
@@ -321,8 +329,13 @@ namespace Sufficit.Telephony.EventsPanel
                 await _client.GetQueueStatus(queue, member, cancellationToken);
         }
 
-        public delegate Task<string> AsyncTaskMonitor(EventsPanelCardMonitor monitor);
+        public delegate Task<string> AsyncTaskMonitor(EventsPanelCard monitor);
 
-        public Func<EventsPanelCardMonitor, Task<string>>? CardAvatarHandler { get; set; }
+        public Func<EventsPanelCard, Task<string>>? CardAvatarHandler { get; set; }
+
+        /// <summary>
+        /// IMonitor Key, only representative, not used.
+        /// </summary>
+        public string Key => nameof(EventsPanelService);
     }
 }

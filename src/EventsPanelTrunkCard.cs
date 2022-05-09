@@ -7,19 +7,18 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class EventsPanelTrunkCard : EventsPanelCard
+    public class EventsPanelTrunkCard : EventsPanelCard<PeerInfo>
     {
-        public override EventsPanelCardKind Kind => EventsPanelCardKind.TRUNK;
+        public new PeerInfoMonitor? Monitor => (PeerInfoMonitor?)base.Monitor;
 
-        public EventsPanelTrunkCard() { }
-
-        public EventsPanelTrunkCard(EventsPanelCard source)
+        public EventsPanelTrunkCard(EventsPanelCardInfo card) : base(card)
         {
-            this.Label = source.Label;
-            this.Exclusive = source.Exclusive;
 
-            foreach (var s in source.Channels)
-                this.Channels.Add(s);
+        }
+
+        public EventsPanelTrunkCard(EventsPanelCardInfo card, PeerInfoMonitor monitor) : base(card, monitor)
+        {
+
         }
     }
 }

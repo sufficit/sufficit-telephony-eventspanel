@@ -9,14 +9,20 @@ using static Sufficit.Telephony.EventsPanel.IMonitor;
 namespace Sufficit.Telephony.EventsPanel
 {
 
-    public interface IEventsPanelCardCollection : ICollection<EventsPanelCardMonitor>
+    public interface IEventsPanelCardCollection : ICollection<EventsPanelCard>
     {
-        IEnumerable<EventsPanelCardMonitor> this[string key] { get; }
+        IEnumerable<EventsPanelCard> this[string key] { get; }
 
-        IList<EventsPanelCardMonitor> ToList();
+        IList<EventsPanelCard> ToList();
 
         IList<T> ToList<T>();
 
         event AsyncEventHandler? OnChanged;
+
+        IEnumerable<EventsPanelTrunkCard> Trunks { get; }
+
+        IEnumerable<EventsPanelPeerCard> Peers { get; }
+
+        IEnumerable<EventsPanelQueueCard> Queues { get; }
     }
 }

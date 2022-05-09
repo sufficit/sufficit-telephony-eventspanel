@@ -25,7 +25,7 @@ namespace Sufficit.Telephony.EventsPanel
                     case HangupEvent newEvent:          Handle(this, newEvent, out Updated); break;
                 }
 
-                if (Updated)
+                if (Updated)                    
                     base.Event(@event);
             }
         }
@@ -48,50 +48,39 @@ namespace Sufficit.Telephony.EventsPanel
 
         public static void Handle(ChannelInfoMonitor source, StatusEvent @event, out bool updated)
         {
-            updated = UpdateReceived(source, @event.DateReceived);
+            updated = UpdateReceived(source, @event.GetTimeStamp());
             var content = source.GetContent();
-            if (content.State != @event.ChannelState)
-            {
-                content.State = @event.ChannelState;
-                updated = true;
-            }
 
-            content.CallerIDNum = @event.CallerIdNum;
-            content.CallerIDName = @event.CallerIdName;
+            // if this event is newer, check state and extra info
+            if (updated) HandleState(content, @event);
         }
 
         public static void Handle(ChannelInfoMonitor source, NewChannelEvent @event, out bool updated)
         {
-            updated = UpdateReceived(source, @event.DateReceived);
+            updated = UpdateReceived(source, @event.GetTimeStamp());
             var content = source.GetContent();
-            if (content.State != @event.ChannelState)
-            {
-                content.State = @event.ChannelState;
-                updated = true;
-            }
 
-            content.CallerIDNum = @event.CallerIdNum;
-            content.CallerIDName = @event.CallerIdName;
+            // if this event is newer, check state and extra info
+            if (updated) HandleState(content, @event);
         }
 
         public static void Handle(ChannelInfoMonitor source, NewStateEvent @event, out bool updated)
         {
-            updated = UpdateReceived(source, @event.DateReceived);
+            updated = UpdateReceived(source, @event.GetTimeStamp());
             var content = source.GetContent();
-            if (content.State != @event.ChannelState)
-            {
-                content.State = @event.ChannelState;
-                updated = true;
-            }
 
-            content.CallerIDNum = @event.CallerIdNum;
-            content.CallerIDName = @event.CallerIdName;
+            // if this event is newer, check state and extra info
+            if (updated) HandleState(content, @event);
         }
 
         public static void Handle(ChannelInfoMonitor source, HangupEvent @event, out bool updated)
         {
-            updated = UpdateReceived(source, @event.DateReceived);
+            updated = UpdateReceived(source, @event.GetTimeStamp());
             var content = source.GetContent();
+
+            // if this event is newer, check state and extra info
+            if (updated) HandleState(content, @event);            
+
             if (content.Hangup == null)
             {
                 content.Hangup = new Hangup();
@@ -99,7 +88,14 @@ namespace Sufficit.Telephony.EventsPanel
                 content.Hangup.Description = @event.CauseTxt;
                 content.Hangup.Timestamp = @event.DateReceived;
                 updated = true;
-            }
+            }            
+        }
+
+        public static void HandleState(ChannelInfo content, IChannelInfoEvent @event)
+        {
+            content.State = @event.ChannelState;  
+            content.CallerIDNum = @event.CallerIdNum;
+            content.CallerIDName = @event.CallerIdName;
         }
     }
 }

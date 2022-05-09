@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class AMIHubClient
+    public class AMIHubClient : IDisposable
     {
         private readonly ILogger<AMIHubClient> _logger;
         private AMIHubClientOptions? _options;
@@ -96,14 +96,14 @@ namespace Sufficit.Telephony.EventsPanel
         public IDisposable? Register<T>(Func<string, T, Task> action) where T : IManagerEvent, new()
         {
             var key = typeof(T).Name;
-            _logger.LogInformation($"Registering key: {key}");
+            _logger.LogDebug($"Registering key: {key}");
             return Hub?.On(key, action);
         }
 
         public IDisposable? Register<T>(Action<string, T> action) where T : IManagerEvent, new()
         {
             var key = typeof(T).Name;
-            _logger.LogInformation($"Registering key: {key}");
+            _logger.LogDebug($"Registering key: {key}");
             return Hub?.On(key, action);
         }
 
@@ -129,6 +129,15 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (Hub != null && Hub.State == HubConnectionState.Connected)
                 await Hub.InvokeAsync("GetQueueStatus", queue, member);
+        }
+
+        public async void Dispose()
+        {
+            if(Hub != null)
+                await Hub.DisposeAsync();
+
+            OnChanged = null;
+            _options = null;
         }
     }
 }
