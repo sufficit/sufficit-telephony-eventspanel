@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class ChannelInfoCollection : GenericCollection<ChannelInfoMonitor>
+    public class ChannelInfoCollection : MonitorCollection<ChannelInfoMonitor>
     {
         public override void Add(ChannelInfoMonitor monitor)
         {

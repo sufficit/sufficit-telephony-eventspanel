@@ -64,7 +64,7 @@ namespace Sufficit.Telephony.EventsPanel
                 case EventsPanelChannelMatchKind.CONTAINS:
                     return match.Contains(Key);
 
-                default: return match.Equals(Key);
+                default: return match.Equals(Key, StringComparison.InvariantCultureIgnoreCase);
             }
         }
     }

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
@@ -75,7 +76,8 @@ namespace Sufficit.Telephony.EventsPanel
 
         public static void Handle(ChannelInfoMonitor source, HangupEvent @event, out bool updated)
         {
-            updated = UpdateReceived(source, @event.GetTimeStamp());
+            var timestamp = @event.GetTimeStamp();
+            updated = UpdateReceived(source, timestamp);
             var content = source.GetContent();
 
             // if this event is newer, check state and extra info
@@ -86,7 +88,7 @@ namespace Sufficit.Telephony.EventsPanel
                 content.Hangup = new Hangup();
                 content.Hangup.Code = @event.Cause;
                 content.Hangup.Description = @event.CauseTxt;
-                content.Hangup.Timestamp = @event.DateReceived;
+                content.Hangup.Timestamp = timestamp;
                 updated = true;
             }            
         }

@@ -10,13 +10,13 @@ using static Sufficit.Telephony.EventsPanel.IMonitor;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class GenericCollection<T> : IEnumerable<T>, ICollection<T> where T : IMonitor
+    public class MonitorCollection<T> : IEnumerable<T>, ICollection<T> where T : IMonitor
     {
         private readonly IDictionary<string, T> _items;
         private readonly object _lockKeys;
         private readonly object _lockValues;
 
-        public GenericCollection()
+        public MonitorCollection()
         {
             var comparer = StringComparer.OrdinalIgnoreCase;
             _items = new Dictionary<string, T>(comparer);
@@ -25,15 +25,20 @@ namespace Sufficit.Telephony.EventsPanel
             _lockValues = new object();
         }
 
-        ~GenericCollection()
+        ~MonitorCollection()
         {
             lock (_lockKeys)
                 lock(_lockValues)
                     _items.Clear();
         }
 
-        private event AsyncEventHandler? _onChanged;
-        public  event AsyncEventHandler? OnChanged
+        private event Action<IMonitor?, object?>? _onChanged;
+
+        /// <summary>
+        /// Monitor changes in the collection, numeric changes, add, remove, etc <br />
+        /// Not internal items changes
+        /// </summary>
+        public  event Action<IMonitor?, object?>? OnChanged
         {
             add { if(!IsEventHandlerRegistered(value)) _onChanged += value; }
             remove { _onChanged -= value; }

@@ -8,8 +8,6 @@ namespace Sufficit.Telephony.EventsPanel
 {
     public interface IMonitor : IKey
     {       
-        event AsyncEventHandler? OnChanged;
-
-        delegate void AsyncEventHandler(IMonitor? sender, object? state);
+        event Action<IMonitor?, object?>? OnChanged;
     }
 }

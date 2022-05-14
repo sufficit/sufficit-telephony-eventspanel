@@ -17,12 +17,12 @@ namespace Sufficit.Telephony.EventsPanel
         public QueueInfo(string key)
         {
             Key = key;
-            Agents = new GenericCollection<QueueAgentInfo>();
+            Agents = new MonitorCollection<QueueAgentInfo>();
         }
 
         #region PROPRIEDADES PUBLICAS
 
-        public GenericCollection<QueueAgentInfo> Agents { get; }
+        public MonitorCollection<QueueAgentInfo> Agents { get; }
         public string? Strategy { get; set; }
         public int Max { get; set; }
         public int Calls { get; set; }

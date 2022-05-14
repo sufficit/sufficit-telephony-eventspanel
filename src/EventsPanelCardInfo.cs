@@ -10,7 +10,7 @@ namespace Sufficit.Telephony.EventsPanel
     /// <summary>
     /// Basic info to Match a card to a monitor
     /// </summary>
-    public class EventsPanelCardInfo : IEventsPanelCardInfo
+    public class EventsPanelCardInfo : IEventsPanelCardInfo, IEquatable<EventsPanelCardInfo>
     {
         public EventsPanelCardInfo()
         {
@@ -19,14 +19,19 @@ namespace Sufficit.Telephony.EventsPanel
             Channels = new HashSet<string>();
         }
 
-        // public string? Key { get; set; }
+        public HashSet<string> Channels { get; set; }
 
         public virtual EventsPanelCardKind Kind { get; set; }
-
-        public HashSet<string> Channels { get; }
 
         public string Label { get; set; }
 
         public bool Exclusive { get; set; }
+
+        public bool Equals(EventsPanelCardInfo? other)
+            => other != null &&
+            other.Kind == Kind &&
+            other.Label == Label &&
+            other.Exclusive == Exclusive &&
+            other.Channels.SetEquals(Channels);
     }
 }

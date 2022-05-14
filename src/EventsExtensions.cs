@@ -53,7 +53,7 @@ namespace Sufficit.Telephony.EventsPanel
             cardinfo.Kind = EventsPanelCardKind.QUEUE;
             cardinfo.Label = source.Queue;
 
-            return cardinfo.CardFromOptions(service);
+            return cardinfo.CardCreate(service);
         }
         
         public static EventsPanelCard HandleCardByEvent(this IPeerStatus source, EventsPanelService service)
@@ -69,7 +69,7 @@ namespace Sufficit.Telephony.EventsPanel
                 cardinfo.Label = splitted[1];
             }
 
-            return cardinfo.CardFromOptions(service);
+            return cardinfo.CardCreate(service);
         }
 
         public static EventsPanelCard HandleCardByEvent(this IChannelEvent source, EventsPanelService service)
@@ -82,29 +82,11 @@ namespace Sufficit.Telephony.EventsPanel
             cardinfo.Label = channel.Name;
             cardinfo.Channels.Add($"^{ peerId }");
 
-            return cardinfo.CardFromOptions(service);
+            return cardinfo.CardCreate(service);
         }
 
-        public static EventsPanelCard HandleCardByEvent(this PeerEntryEvent source, EventsPanelService service)
-        {
-            var info = new Asterisk.PeerInfo();
-            info.Protocol = source.ChannelType;
-            info.Name = source.ObjectName;
-            
-            var channel = new AsteriskChannel(info);
-            var peerId = channel.GetPeer();
-            var cardinfo = new EventsPanelCardInfo();
-            cardinfo.Kind = EventsPanelCardKind.PEER;
-
-            cardinfo.Label = channel.Name;
-            cardinfo.Channels.Add($"^{ peerId }");
-
-            if (!string.IsNullOrWhiteSpace(source.Description))
-                cardinfo.Label = source.Description;
-
-            return cardinfo.CardMonitor(service);
-        }
-
+        public static Task EventAsync(this EventsPanelService source, EventsPanelCard card, IManagerEventFromAsterisk @event) 
+            => Task.Factory.StartNew(() => Event(source,card, @event));
 
         /// <summary>
         /// Where card exists
@@ -114,16 +96,6 @@ namespace Sufficit.Telephony.EventsPanel
         /// <param name="event"></param>
         public static void Event(this EventsPanelService source, EventsPanelCard card, IManagerEventFromAsterisk @event)
         {
-            var timestamp = @event.GetTimeStamp();
-            if (card.MaxUpdate < timestamp)
-            {
-                card.MaxUpdate = timestamp;
-            }        
-            else if(card.MinUpdate > timestamp || card.MinUpdate == DateTime.MinValue)
-            {
-                card.MinUpdate = timestamp;                
-            }
-
             if (@event is IChannelEvent eventChannel)
                 card.IChannelEvent(source.Channels, eventChannel);
 
@@ -143,14 +115,14 @@ namespace Sufficit.Telephony.EventsPanel
         public static void IChannelEvent(this EventsPanelCard source, ChannelInfoCollection channels, IChannelEvent @event)
         {
             var channelId = @event.Channel;
-            var channel = source.Channels[channelId];
-            if (channel == null)
+            var monitor = source.Channels[channelId];
+            if (monitor == null)
             {
-                channel = channels[channelId];
-                if (channel == null)
-                    throw new InvalidOperationException("null channel on card");
+                monitor = channels[channelId];
+                if (monitor == null)
+                    throw new InvalidOperationException($"null channel monitor on card: { channelId }");
                 
-                source.Channels.Add(channel);
+                source.Channels.Add(monitor);
                 source.Monitor?.Event(@event);
             }
         }

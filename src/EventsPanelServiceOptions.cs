@@ -15,7 +15,8 @@ namespace Sufficit.Telephony.EventsPanel
         {
             IgnoreLocal = true;
             ShowTrunks = true;
-            Cards = new List<EventsPanelCardInfo>();
+            AutoGenerateQueueCards = true;
+            Cards = new HashSet<EventsPanelCardInfo>();
         }
 
         /// <summary>
@@ -30,16 +31,20 @@ namespace Sufficit.Telephony.EventsPanel
 
         public bool AutoFill { get; set; }
 
+        public bool AutoGenerateQueueCards { get; set; }
+
         public bool IgnoreLocal { get; set; }
 
-        public ICollection<EventsPanelCardInfo> Cards { get; }
+        public HashSet<EventsPanelCardInfo> Cards { get; set; }
 
         public bool Equals(EventsPanelServiceOptions? other)
             => other != null && 
             other.RefreshRate == RefreshRate &&
+            other.AutoGenerateQueueCards == AutoGenerateQueueCards &&
             other.ShowTrunks == ShowTrunks &&
             other.MaxButtons == MaxButtons &&
             other.AutoFill == AutoFill &&
-            other.IgnoreLocal == IgnoreLocal;        
+            other.IgnoreLocal == IgnoreLocal &&
+            other.Cards.SetEquals(Cards);        
     }
 }

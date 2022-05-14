@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class AMIHubClient : IDisposable
+    public class AMIHubClient : IAsyncDisposable
     {
         private readonly ILogger<AMIHubClient> _logger;
         private AMIHubClientOptions? _options;
@@ -59,36 +59,32 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        private void _hub_SystemMessage(string? _)
+        private void _hub_SystemMessage(string? message)
         {
-            if (OnChanged != null)
-                OnChanged.Invoke(this);
+            if (message != null)
+                _logger.LogWarning(message);
+
+            OnChanged?.Invoke(State, null);
         }
 
-        private async Task _hub_Reconnecting(Exception? arg)
+        private Task _hub_Reconnecting(Exception? arg)
         {
-            await Task.Yield();
-
-            if (OnChanged != null)
-                OnChanged.Invoke(this);
+            OnChanged?.Invoke(State, arg);
+            return Task.CompletedTask;
         }
 
-        private async Task _hub_Reconnected(string? arg)
+        private Task _hub_Reconnected(string? arg)
         {
-            await Task.Yield();
-
-            if (OnChanged != null)
-                OnChanged.Invoke(this);
+            OnChanged?.Invoke(State, null);
+            return Task.CompletedTask;
         }
 
         #region HUB STATE EVENTS
 
-        private async Task _hub_Closed(Exception? arg)
+        private Task _hub_Closed(Exception? arg)
         {
-            await Task.Yield();
-
-            if(OnChanged != null)
-                OnChanged.Invoke(this);            
+            OnChanged?.Invoke(State, arg);
+            return Task.CompletedTask;       
         }
 
         #endregion
@@ -115,7 +111,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         public HubConnectionState? State => Hub?.State;
 
-        public event AsyncEventHandler? OnChanged;
+        public event Action<HubConnectionState?, Exception?>? OnChanged;
 
         public delegate void AsyncEventHandler(AMIHubClient sender);
 
@@ -131,7 +127,7 @@ namespace Sufficit.Telephony.EventsPanel
                 await Hub.InvokeAsync("GetQueueStatus", queue, member);
         }
 
-        public async void Dispose()
+        public async ValueTask DisposeAsync()
         {
             if(Hub != null)
                 await Hub.DisposeAsync();

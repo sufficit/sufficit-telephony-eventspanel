@@ -28,15 +28,20 @@ namespace Sufficit.Telephony.EventsPanel
 
         public static string GetQueueKey(this EventsPanelCardInfo source)
         {
-            /*
-            if (!string.IsNullOrWhiteSpace(source.Key))
-                return source.Key;
-            
-            else*/
+            if (source.Channels.Count == 1 && source.Exclusive)
+            {
+                string s = source.Channels.First();
+                s = s.TrimStart('^');
+                s = s.TrimStart('*');
+                if (s.Contains('/'))
+                    s = s.Split('/')[1];
+                
+                return s;
+            }
             return source.Label;
         }
 
-        public static EventsPanelCard CardFromOptions(this EventsPanelCardInfo source, EventsPanelService service)
+        public static EventsPanelCard CardCreate(this EventsPanelCardInfo source, EventsPanelService service)
         {
             switch (source.Kind)
             {

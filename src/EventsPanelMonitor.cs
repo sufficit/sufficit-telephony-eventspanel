@@ -15,8 +15,10 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public string Key => Content.Key;
 
-
-        public event IMonitor.AsyncEventHandler? OnChanged;
+        /// <summary>
+        /// Monitor changes on underlaying item properties, queue, peer, trunk
+        /// </summary>
+        public event Action<IMonitor?, object?>? OnChanged;
 
         public EventsPanelMonitor(IKey content)
         {

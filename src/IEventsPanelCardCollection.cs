@@ -17,7 +17,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         IList<T> ToList<T>();
 
-        event AsyncEventHandler? OnChanged;
+        event Action<EventsPanelCard?>? OnChanged;
 
         IEnumerable<EventsPanelTrunkCard> Trunks { get; }
 

@@ -8,16 +8,21 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class EventsPanelCardCollection : GenericCollection<EventsPanelCard>, IEventsPanelCardCollection
+    public class EventsPanelCardCollection : CardCollection<EventsPanelCard>, IEventsPanelCardCollection
     {
-        public new IEnumerable<EventsPanelCard> this[string key]
+        /// <summary>
+        /// Sending lock object to base, multi thread support
+        /// </summary>
+        public EventsPanelCardCollection(): base(new object()) { }
+
+        IEnumerable<EventsPanelCard> IEventsPanelCardCollection.this[string key]
         {
             get
             {
-                var matches = this.Where(s => s.IsMatch(key));
+                var matches = this.Where(s => s.IsMatch(key)).ToList();
                 if(matches != null)
                 {
-                    return matches.OrderBy(o => !o.Info.Exclusive).ToList(); 
+                    return matches.OrderBy(o => !o.Info.Exclusive); 
                 }                    
                 
                 return Array.Empty<EventsPanelCard>();

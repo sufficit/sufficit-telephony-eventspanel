@@ -7,57 +7,39 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public abstract class EventsPanelCard : IMonitor
+    public abstract class EventsPanelCard : IMultipleKey
     {
-        public Guid UniqueId { get; }
+        public string[] Keys { get; set; } = Array.Empty<string>();
+
+        /// <summary>
+        /// Get the underlaying card from that monitor <br />
+        /// Can be overrited
+        /// </summary>
+        public virtual EventsPanelCardInfo Info => _info;
 
         /// <summary>
         /// Indicates that the underlaynig monitor is not null
         /// </summary>
         public bool IsMonitored => Monitor != null;
 
-        /// <summary>
-        /// Card key not used for now, should ignore
-        /// </summary>
-        public string Key => UniqueId.ToString("N");
-
-        public event IMonitor.AsyncEventHandler? OnChanged;
-
+        public string Label => _info.Label;
         public virtual EventsPanelMonitor? Monitor { get; internal set; }
+        public ChannelInfoCollection Channels { get; }
 
-        //private readonly EventsPanelMemoryCache<IManagerEvent> _buffer;
 
         private readonly EventsPanelCardInfo _info;
 
-
         public EventsPanelCard(EventsPanelCardInfo info)
         {
-            UniqueId = Guid.NewGuid();
-
-            //_buffer = new EventsPanelMemoryCache<IManagerEvent>();
             _info = info;
-
             Channels = new ChannelInfoCollection();
+            Keys = new []{ Guid.NewGuid().ToString() }; 
         }
 
         public EventsPanelCard(EventsPanelCardInfo info , EventsPanelMonitor monitor) : this(info)
         {
             Monitor = monitor;
         }
-
-        public string Label => _info.Label;
-
-        public ChannelInfoCollection Channels { get; }
-
-        /// <summary>
-        /// Last event time of this monitor
-        /// </summary>
-        public DateTime MaxUpdate { get; set; }
-
-        /// <summary>
-        /// First event time of this monitor
-        /// </summary>
-        public DateTime MinUpdate { get; set; }
                 
         /// <summary>
         /// Used to filter channels that should be showing in this card
@@ -68,13 +50,16 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (!string.IsNullOrWhiteSpace(key))
             {
+                var keyNormalized = key.Trim().ToLowerInvariant();
+                if (Keys.Contains(keyNormalized))
+                    return true;
+
                 // checking peer or queue
                 if (IsMonitored && Monitor!.IsMatch(key))
                     return true;
 
                 #region CHECKING CHANNELS
 
-                var keyNormalized = key.Trim().ToLowerInvariant();
                 foreach (var item in _info.Channels)
                 {
                     var match = new EventsPanelChannelMatch(item);
@@ -101,13 +86,6 @@ namespace Sufficit.Telephony.EventsPanel
             }
             return false;
         }
-
-
-        /// <summary>
-        /// Get the underlaying card from that monitor <br />
-        /// Can be overrited
-        /// </summary>
-        public virtual EventsPanelCardInfo Info => _info;
 
         /// <summary>
         /// Get the underlaying card from that monitor

@@ -16,7 +16,7 @@ using static Sufficit.Telephony.EventsPanel.IMonitor;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public partial class EventsPanelService : IHostedService, IMonitor
+    public partial class EventsPanelService : IHostedService
     {
         private readonly ILogger _logger;
         private AMIHubClient? _client;
@@ -26,7 +26,6 @@ namespace Sufficit.Telephony.EventsPanel
         public ChannelInfoCollection Channels { get; }
         public PeerInfoCollection Peers { get; }
         public QueueInfoCollection Queues { get; }
-
         public ICollection<Exception> Exceptions { get; }
 
         public EventsPanelService(IServiceProvider provider)
@@ -59,15 +58,15 @@ namespace Sufficit.Telephony.EventsPanel
             _logger.LogTrace($"Serviço de Controle { GetType().Name } construído !");
         }
 
-        public void Configure(AMIHubClient client)
+        public async void Configure(AMIHubClient client)
         {
             if(client != null && !client.Equals(_client))
             {
                 if(_client != null)                
-                    _client.Dispose();                
+                    await _client.DisposeAsync();                
 
                 _client = client;
-                _client.OnChanged += _client_OnChanged;
+                _client.OnChanged += ClientChanged;
 
                 _client.Register<PeerStatusEvent>(IManagerEventHandler);
                 _client.Register<NewChannelEvent>(IManagerEventHandler);
@@ -94,7 +93,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         public void IManagerEventHandler(string sender, IManagerEventFromAsterisk @event)
         {
-            if(OnEvent != null)
+            if (OnEvent != null)
             {
                 try
                 {
@@ -107,21 +106,35 @@ namespace Sufficit.Telephony.EventsPanel
             {
                 HashSet<string> cardKeys = new HashSet<string>();
                 if (@event is IChannelEvent eventChannel)
-                    cardKeys.Add(HandleEvent(this, eventChannel));
+                {
+                    if (ShouldIgnore)
+                    {
+                        var channel = new AsteriskChannel(eventChannel.Channel);
+                        if (channel.Protocol == AsteriskChannelProtocol.LOCAL) return;
+                    }
+
+                    var key = HandleEvent(this, eventChannel);
+                    cardKeys.Add(key);
+                }
 
                 if (@event is IPeerStatus peerStatusEvent)
                     cardKeys.Add(HandleEvent(this, peerStatusEvent));
 
-                if (@event is IQueueEvent eventQueue)
+                if (@event is IQueueEvent eventQueue)                
                     cardKeys.Add(HandleEvent(this, eventQueue));
 
+                // _logger.LogDebug($"event: {@event.GetType()}, cardKeys: {string.Join('|', cardKeys)}");
+
+                
+                // handling auto discover cards
+                var newEvent = @event;
                 var cards = new HashSet<EventsPanelCard>();
                 foreach (var key in cardKeys)
-                    foreach (var card in HandlerCard(key, @event))
+                    foreach (var card in HandleCard(key, newEvent))
                         cards.Add(card);
 
                 foreach (var card in cards)
-                    this.Event(card, @event);
+                    this.Event(card, newEvent);                    
             }
             catch (Exception ex)
             {
@@ -131,15 +144,14 @@ namespace Sufficit.Telephony.EventsPanel
 
         public event EventHandler<IManagerEventFromAsterisk>? OnEvent;
 
-        private void _client_OnChanged(AMIHubClient _)
-        {          
-            OnChanged?.Invoke(this, null);            
-        }
+        private void ClientChanged(HubConnectionState? state, Exception? ex)
+            => OnChanged?.Invoke(state, ex);
 
         public EventsPanelServiceOptions? Options { get; internal set; }
 
         public void OnConfigure(EventsPanelServiceOptions? options)
         {
+            _logger.LogDebug($"trying to parse options");
             if (options != null && !options.Equals(Options))
             {
                 Options = options;
@@ -148,15 +160,13 @@ namespace Sufficit.Telephony.EventsPanel
                     _cards.Clear();
                     foreach (var card in Options.Cards)
                     {                        
-                        var cardMonitor = EventsPanelCardExtensions.CardFromOptions(card, this);
+                        var cardMonitor = EventsPanelCardExtensions.CardCreate(card, this);
                         _cards.Add(cardMonitor);
                     }
                 }
 
                 Panel.Update(Options);
-                _logger.LogInformation($"Configuração atualizada, Max Buttons: { Options.MaxButtons }");
-
-                OnChanged?.Invoke(this, null);
+                _logger.LogInformation($"Configuração atualizada, Max Buttons: { Options.MaxButtons }, Cards: { Options.Cards.Count() }, ShowTrunks: { Options.ShowTrunks }");
             }
         }
 
@@ -164,24 +174,38 @@ namespace Sufficit.Telephony.EventsPanel
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            if (_client?.State == HubConnectionState.Disconnected)
-            {
-                try
+            if (_client != null) 
+            { 
+                if (_client.State == HubConnectionState.Disconnected)
                 {
-                    await _client.StartAsync(cancellationToken);
+                    _logger.LogInformation("starting hosted service");
+                    try
+                    {
+                        await _client.StartAsync(cancellationToken);
+                    }
+                    catch (Exception ex)
+                    {
+                        OnChanged?.Invoke(_client.State, ex);
+                    }
                 }
-                catch (Exception) {
-                    if (OnChanged != null)
-                        OnChanged.Invoke(this, null);
-                    
-                    throw;
-                }
+                else
+                {
+                    _logger.LogDebug($"starting hosted service notice status: { _client.State.ToString() }");
+                }                 
+            }
+            else
+            {
+                _logger.LogWarning("starting hosted service fail: hub client null");
             }
         }
 
-        public Task StopAsync(CancellationToken cancellationToken)
+        public async Task StopAsync(CancellationToken cancellationToken)
         {
-            return Task.CompletedTask;
+            _logger.LogInformation("Queued Hosted Service is stopping.");
+            if(_client != null)
+            {
+                await _client.DisposeAsync();
+            }
         }
 
         #endregion
@@ -193,20 +217,23 @@ namespace Sufficit.Telephony.EventsPanel
 
         protected bool ShouldIgnore => Options == null || Options.IgnoreLocal;
 
-        protected bool ShouldFillPeers => ShouldFill; 
+        protected bool ShouldFillPeers => ShouldFill;
+
+        protected bool ShouldFillQueues => Options == null || Options.AutoGenerateQueueCards;
 
         protected IEnumerable<EventsPanelCard> HandleCardByKey(string key)
         {
-            int count = 0;
             foreach (var card in _cards[key])
             {
-                count++;
                 yield return card;
                 if (card.Info.Exclusive) yield break;
             }
         }
 
-        protected IEnumerable<EventsPanelCard> HandlerCard(string key, IManagerEvent eventObj)
+        protected async Task<IEnumerable<EventsPanelCard>> HandleCardAsync(string key, IManagerEvent eventObj)
+            => await Task.Run(() => HandleCard(key, eventObj));
+
+        protected IEnumerable<EventsPanelCard> HandleCard(string key, IManagerEvent eventObj)
         {
             var cards = HandleCardByKey(key);
             if (cards.Any()) return cards;
@@ -219,91 +246,15 @@ namespace Sufficit.Telephony.EventsPanel
             if (!ShouldFillPeers && cardMonitor.Info.Kind == EventsPanelCardKind.PEER)
                 return Array.Empty<EventsPanelCard>();
 
+            if (!ShouldFillQueues && cardMonitor.Info.Kind == EventsPanelCardKind.QUEUE)
+                return Array.Empty<EventsPanelCard>();
+
             _cards.Add(cardMonitor); // include global
 
             return new[] { cardMonitor };
         }
 
-        protected void PeerEntryEventHandler(string sender, PeerEntryEvent eventObj)
-        {
-            var key = $"{ eventObj.ChannelType }/{ eventObj.ObjectName }";
-            foreach (var card in HandlerCard(key, eventObj))
-                this.Event(card, eventObj);
-        }
-
-        protected void StatusEventHandler(string sender, StatusEvent eventObj)
-        {
-            if (ShouldIgnore)
-            {
-                var channel = new AsteriskChannel(eventObj.Channel);
-                if (channel.Protocol == AsteriskChannelProtocol.LOCAL) return;
-            }
-
-            foreach (var card in HandlerCard(eventObj.Channel, eventObj))
-                this.Event(card, eventObj);
-        }
-
-        protected void PeerStatusEventHandler(string sender, PeerStatusEvent eventObj)
-        {
-            foreach (var card in HandlerCard(eventObj.Peer, eventObj))
-                this.Event(card, eventObj);
-        }
-
-        protected void NewChannelEventHandler(string sender, NewChannelEvent eventObj)
-        {
-            if (ShouldIgnore)
-            {
-                var channel = new AsteriskChannel(eventObj.Channel);
-                if (channel.Protocol == AsteriskChannelProtocol.LOCAL) return;
-            }
-
-            foreach (var card in HandlerCard(eventObj.Channel, eventObj))
-                this.Event(card, eventObj);            
-        }
-
-        protected void NewStateEventHandler(string sender, NewStateEvent eventObj)
-        {
-            if (ShouldIgnore)
-            {
-                var channel = new AsteriskChannel(eventObj.Channel);
-                if (channel.Protocol == AsteriskChannelProtocol.LOCAL) return;
-            }
-
-            foreach (var card in HandlerCard(eventObj.Channel, eventObj))
-                this.Event(card, eventObj);
-        }
-
-        protected void HangupEventHandler(string sender, HangupEvent eventObj)
-        {
-            if (ShouldIgnore)
-            {
-                var channel = new AsteriskChannel(eventObj.Channel);
-                if (channel.Protocol == AsteriskChannelProtocol.LOCAL) return;
-            }
-
-            foreach (var card in HandlerCard(eventObj.Channel, eventObj))
-                this.Event(card, eventObj);
-        }
-
-        #endregion
-        #region QUEUES
-
-        protected void QueueEventHandler(string sender, QueueEvent eventObj)
-        {
-            foreach (var card in HandlerCard(eventObj.Queue, eventObj))
-            {
-                if (!card.IsMonitored)
-                {
-                    _logger.LogInformation($"({sender}) card not monitored");
-                }
-                else
-                {
-                    this.Event(card, eventObj);
-                }
-            }
-        }        
-
-        #endregion
+        #endregion        
 
         public bool IsConnected => _client?.State == HubConnectionState.Connected;
 
@@ -315,7 +266,10 @@ namespace Sufficit.Telephony.EventsPanel
 
         public Panel Panel { get; }
 
-        public event AsyncEventHandler? OnChanged;
+        /// <summary>
+        /// On Status Changed or Exception occurs
+        /// </summary>
+        public event Action<HubConnectionState?, Exception?>? OnChanged;
 
         public async Task GetPeerStatus(CancellationToken cancellationToken = default)
         {

@@ -13,7 +13,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         string IKey.Key => Interface;
 
-        public event IMonitor.AsyncEventHandler? OnChanged;
+        public event Action<IMonitor?, object?>? OnChanged;
 
         #endregion
 
