@@ -6,11 +6,10 @@ using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static Sufficit.Telephony.EventsPanel.IMonitor;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class MonitorCollection<T> : IEnumerable<T>, ICollection<T> where T : IMonitor
+    public class MonitorCollection<T> : ICollection<T> where T : IMonitor
     {
         private readonly IDictionary<string, T> _items;
         private readonly object _lockKeys;
@@ -32,13 +31,13 @@ namespace Sufficit.Telephony.EventsPanel
                     _items.Clear();
         }
 
-        private event Action<IMonitor?, object?>? _onChanged;
+        private event Action<T?, object?>? _onChanged;
 
         /// <summary>
         /// Monitor changes in the collection, numeric changes, add, remove, etc <br />
         /// Not internal items changes
         /// </summary>
-        public  event Action<IMonitor?, object?>? OnChanged
+        public  event Action<T?, object?>? OnChanged
         {
             add { if(!IsEventHandlerRegistered(value)) _onChanged += value; }
             remove { _onChanged -= value; }
@@ -75,8 +74,10 @@ namespace Sufficit.Telephony.EventsPanel
                 {
                     if (_items.ContainsKey(key))
                     {
-                        lock(_lockValues)
+                        lock (_lockValues)
+                        {
                             return _items[key];
+                        }
                     }
                 }
                 return default;
@@ -93,10 +94,12 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        public virtual bool Contains(T monitor) => Contains(monitor.Key);
+        public virtual bool Contains(T monitor) 
+            => Contains(monitor.Key);
 
         public virtual void Add(T monitor)
         {
+            bool updated = false;
             lock (_lockKeys)
             {
                 if (!_items.ContainsKey(monitor.Key))
@@ -105,12 +108,14 @@ namespace Sufficit.Telephony.EventsPanel
                     {
                         _items.Add(monitor.Key, monitor);
                         monitor.OnChanged += ItemChanged;
-
-                        // Trigering collection changed
-                        Changed(monitor);
+                        updated = true;
                     }
                 }
             }
+
+            // Trigering collection changed
+            if (updated)
+                Changed(monitor);
         }
 
         public virtual bool Remove(string key)
@@ -195,11 +200,15 @@ namespace Sufficit.Telephony.EventsPanel
 
         public IEnumerator<T> GetEnumerator()
         {
-            lock(_lockKeys)
+            lock (_lockKeys)
+            {
                 lock (_lockValues)
-                    return _items.Values.GetEnumerator();
+                {
+                    return _items.Values.ToList().GetEnumerator();
+                }
+            }
         }
 
-        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+        IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
     }
 }

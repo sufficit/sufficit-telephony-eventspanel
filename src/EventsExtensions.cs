@@ -35,8 +35,26 @@ namespace Sufficit.Telephony.EventsPanel
             return source.DateReceived;
         }
 
-        public static EventsPanelCard ToCard(this IManagerEvent source, EventsPanelService service)
+        public static EventsPanelCardKind GetKindByKey(string key)
         {
+            if (!key.Contains('/'))
+            {
+                return EventsPanelCardKind.QUEUE;
+            }
+            return EventsPanelCardKind.PEER;
+        }
+
+
+        public static EventsPanelCard ToCard(this IManagerEvent source, string key, EventsPanelService service)
+        {
+            switch (GetKindByKey(key))
+            {
+                case EventsPanelCardKind.QUEUE: return HandleQueueCard(key, service);
+                case EventsPanelCardKind.PEER: return HandlePeerCard(key, service);
+                default: throw new NotImplementedException($"{source.GetType()} to card not implemented yet");
+            }
+
+            /*
             switch (source)
             {
                 case IPeerStatus        mEvent: return HandleCardByEvent(mEvent, service);
@@ -44,6 +62,27 @@ namespace Sufficit.Telephony.EventsPanel
                 case IQueueEvent        mEvent: return HandleCardByEvent(mEvent, service);
                 default: throw new NotImplementedException($"{ source.GetType() } to card not implemented yet");
             }
+            */
+        }
+
+        public static EventsPanelCard HandleQueueCard(string key, EventsPanelService service)
+        {
+            var cardinfo = new EventsPanelCardInfo();
+            cardinfo.Kind = EventsPanelCardKind.QUEUE;
+            cardinfo.Label = key;
+
+            return cardinfo.CardCreate(service);
+        }
+
+        public static EventsPanelCard HandlePeerCard(string key, EventsPanelService service)
+        {
+            var channel = new AsteriskChannel(key);
+            var cardinfo = new EventsPanelCardInfo();
+            cardinfo.Kind = EventsPanelCardKind.PEER;
+            cardinfo.Label = channel.Name;
+            cardinfo.Channels.Add($"^{key}");
+
+            return cardinfo.CardCreate(service);
         }
 
 
@@ -76,8 +115,9 @@ namespace Sufficit.Telephony.EventsPanel
         {
             var channel = new AsteriskChannel(source.Channel);
             var peerId = channel.GetPeer();
+            Console.WriteLine($"adding a new peer card, key: {peerId}");
 
-            var cardinfo = new EventsPanelCardInfo();
+            var cardinfo = new EventsPanelCardInfo();            
             cardinfo.Kind = EventsPanelCardKind.PEER;
             cardinfo.Label = channel.Name;
             cardinfo.Channels.Add($"^{ peerId }");

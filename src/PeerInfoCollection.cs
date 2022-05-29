@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class QueueInfoCollection : MonitorCollection<QueueInfoMonitor>
+    public class PeerInfoCollection : MonitorCollection<PeerInfoMonitor>
     {
         
     }

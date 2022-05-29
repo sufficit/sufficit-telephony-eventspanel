@@ -76,7 +76,7 @@ namespace Sufficit.Telephony.EventsPanel
                 source.Completed = eventObj.Completed;
                 source.Abandoned = eventObj.Abandoned;
                 source.ServiceLevel = eventObj.ServiceLevel;
-                source.Weight = eventObj.Weight;
+                source.Weight = eventObj.Weight;                
             }
         }
 

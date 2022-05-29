@@ -12,7 +12,6 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using static Sufficit.Telephony.EventsPanel.IMonitor;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -50,7 +49,7 @@ namespace Sufficit.Telephony.EventsPanel
                 Configure(client);
             }
 
-            Panel = new Panel(_cards);
+            Panel = new Panel(_cards, this);
             var monitor = _provider.GetService<IOptionsMonitor<EventsPanelServiceOptions>>();
             OnConfigure(monitor?.CurrentValue);
             monitor.OnChange(OnConfigure);                        
@@ -75,6 +74,7 @@ namespace Sufficit.Telephony.EventsPanel
                 _client.Register<StatusEvent>(IManagerEventHandler);
                 _client.Register<PeerEntryEvent>(IManagerEventHandler);
 
+                // events queue and channels
                 _client.Register<QueueCallerJoinEvent>(IManagerEventHandler);
                 _client.Register<QueueCallerAbandonEvent>(IManagerEventHandler);
                 _client.Register<QueueCallerLeaveEvent>(IManagerEventHandler);
@@ -93,28 +93,24 @@ namespace Sufficit.Telephony.EventsPanel
 
         public void IManagerEventHandler(string sender, IManagerEventFromAsterisk @event)
         {
-            if (OnEvent != null)
-            {
-                try
-                {
-                    OnEvent.Invoke(this, @event);
-                }
-                catch { }
-            }
-
             try
             {
                 HashSet<string> cardKeys = new HashSet<string>();
                 if (@event is IChannelEvent eventChannel)
                 {
+                    bool proccess = true;
                     if (ShouldIgnore)
                     {
                         var channel = new AsteriskChannel(eventChannel.Channel);
-                        if (channel.Protocol == AsteriskChannelProtocol.LOCAL) return;
+                        if (channel.Protocol == AsteriskChannelProtocol.LOCAL) 
+                            proccess = false;
                     }
 
-                    var key = HandleEvent(this, eventChannel);
-                    cardKeys.Add(key);
+                    if (proccess)
+                    {
+                        var key = HandleEvent(this, eventChannel);
+                        cardKeys.Add(key);
+                    }
                 }
 
                 if (@event is IPeerStatus peerStatusEvent)
@@ -123,9 +119,10 @@ namespace Sufficit.Telephony.EventsPanel
                 if (@event is IQueueEvent eventQueue)                
                     cardKeys.Add(HandleEvent(this, eventQueue));
 
-                // _logger.LogDebug($"event: {@event.GetType()}, cardKeys: {string.Join('|', cardKeys)}");
+                //_logger.LogDebug($"event: {@event.GetType()}, cardKeys: {string.Join('|', cardKeys)}");
 
-                
+                OnEvent?.Invoke(cardKeys, @event);
+                /*              
                 // handling auto discover cards
                 var newEvent = @event;
                 var cards = new HashSet<EventsPanelCard>();
@@ -135,6 +132,7 @@ namespace Sufficit.Telephony.EventsPanel
 
                 foreach (var card in cards)
                     this.Event(card, newEvent);                    
+                */
             }
             catch (Exception ex)
             {
@@ -142,7 +140,7 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        public event EventHandler<IManagerEventFromAsterisk>? OnEvent;
+        public event Action<IEnumerable<string>, IManagerEventFromAsterisk>? OnEvent;
 
         private void ClientChanged(HubConnectionState? state, Exception? ex)
             => OnChanged?.Invoke(state, ex);
@@ -157,7 +155,6 @@ namespace Sufficit.Telephony.EventsPanel
                 Options = options;
                 if (Options.Cards.Any())
                 {
-                    _cards.Clear();
                     foreach (var card in Options.Cards)
                     {                        
                         var cardMonitor = EventsPanelCardExtensions.CardCreate(card, this);
@@ -240,7 +237,7 @@ namespace Sufficit.Telephony.EventsPanel
                       
             if (!ShouldFill) return Array.Empty<EventsPanelCard>();
 
-            var cardMonitor = eventObj.ToCard(this);
+            var cardMonitor = eventObj.ToCard(key, this);
 
             //ignoring peers auto fill
             if (!ShouldFillPeers && cardMonitor.Info.Kind == EventsPanelCardKind.PEER)
@@ -249,6 +246,7 @@ namespace Sufficit.Telephony.EventsPanel
             if (!ShouldFillQueues && cardMonitor.Info.Kind == EventsPanelCardKind.QUEUE)
                 return Array.Empty<EventsPanelCard>();
 
+            //_logger.LogDebug($"adding a new card, kind: {cardMonitor.Info.Kind}, search key: { key }, card keys: { string.Join('|', cardMonitor.Keys) }");
             _cards.Add(cardMonitor); // include global
 
             return new[] { cardMonitor };

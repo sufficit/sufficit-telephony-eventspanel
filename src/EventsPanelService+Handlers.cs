@@ -48,7 +48,6 @@ namespace Sufficit.Telephony.EventsPanel
             {
                 switch (collection)
                 {
-                    case MonitorCollection<ChannelInfoMonitor>: monitor = new ChannelInfoMonitor(key); break;
                     case MonitorCollection<PeerInfoMonitor>: monitor = new PeerInfoMonitor(key); break;
                     case MonitorCollection<QueueInfoMonitor>: monitor = new QueueInfoMonitor(key); break;
                     default: throw new ArgumentException("invalid type of imonitor");
@@ -60,6 +59,26 @@ namespace Sufficit.Telephony.EventsPanel
         }
 
         /// <summary>
+        /// GetOrCreate Monitor
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="collection"></param>
+        /// <param name="key"></param>
+        /// <returns></returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static ChannelInfoMonitor Monitor(MonitorCollection<ChannelInfoMonitor> collection, string key, string? queue = null)
+        {
+            ChannelInfoMonitor? monitor = collection[key];
+            if (monitor == null)
+            {
+                monitor = new ChannelInfoMonitor(key);
+                monitor.Content.Queue = queue;
+                collection.Add(monitor);
+            }
+            return monitor;
+        }
+
+        /// <summary>
         /// Handle Channel events and create a monitor if not exists
         /// </summary>
         /// <param name="source"></param>
@@ -67,8 +86,12 @@ namespace Sufficit.Telephony.EventsPanel
         /// <returns></returns>
         public static string HandleEvent(EventsPanelService source, IChannelEvent @event)
         {
+            string? queue = null;
+            if(@event is IQueueEvent eventQueue)
+                queue = eventQueue.Queue;            
+
             // send channel to monitor
-            var monitor = Monitor(source.Channels, @event.Channel);
+            var monitor = Monitor(source.Channels, @event.Channel, queue);
             monitor.Event(@event);
 
             // return discover key to card

@@ -18,11 +18,18 @@
   </ItemGroup>
 
 	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
-		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.22.*" />		
+		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.22.*" />
+		<PackageReference Include="Sufficit.Telephony.EventsPanel.Core" Version="1.22.*" />
 	</ItemGroup>
 
 	<ItemGroup Label="Sufficit Local Dependencies" Condition=" '$(Configuration)' != 'Packing' ">
 		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" />
+		<ProjectReference Include="..\..\sufficit-telephony-eventspanel-core\src\Sufficit.Telephony.EventsPanel.Core.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\..\sufficit-base\src\Sufficit.Base.csproj" />
+	  <ProjectReference Include="..\..\sufficit-utils\src\Sufficit.Utils.csproj" />
 	</ItemGroup>
 
 </Project>

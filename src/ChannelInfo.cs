@@ -24,8 +24,29 @@ namespace Sufficit.Telephony.EventsPanel
 
         public Hangup? Hangup { get; set; }
 
-        public string? CallerIDNum { get; set; }
+        public string? UniqueId { get; set; }
+        public string? LinkedId { get; set; }
 
-        public string? CallerIDName { get; set; }
+        /// <summary>
+        /// First exten on new channel event
+        /// </summary>
+        public string? DialedExten { get; set; }
+        public string? Exten { get; set; }
+        public string? CallerIdNum { get; set; }
+        public string? CallerIdName { get; set; }
+        public string? ConnectedLineNum { get; set; }
+        public string? ConnectedLineName { get; set; }
+
+
+        public string? DirectInwardDialing { get; set; }
+
+        public string? OutboundCallerId { get; set; }
+
+        public CallDirection Direction { get; set; }
+
+        /// <summary>
+        /// Queue that originate that channel
+        /// </summary>
+        public string? Queue { get; set; }
     }
 }
