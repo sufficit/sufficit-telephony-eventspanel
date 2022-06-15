@@ -29,7 +29,7 @@ namespace Sufficit.Telephony.EventsPanel
             monitor.OnChange(Configure);           
         }
 
-        public AMIHubClient(AMIHubClientOptions options, ILogger<AMIHubClient> logger)
+        public AMIHubClient(AMIHubClientOptions options, ILogger<AMIHubClient>? logger = default)
         {
             if (logger != null) _logger = logger;
             else _logger = new LoggerFactory().CreateLogger<AMIHubClient>();
@@ -105,8 +105,10 @@ namespace Sufficit.Telephony.EventsPanel
 
         public async Task StartAsync(CancellationToken cancellationToken = default)
         {
-            if (Hub != null)
-                await Hub.StartAsync(cancellationToken);
+            if (Hub == null)
+                throw new Exception("no hub configured");
+
+            await Hub.StartAsync(cancellationToken);
         }
 
         public HubConnectionState? State => Hub?.State;

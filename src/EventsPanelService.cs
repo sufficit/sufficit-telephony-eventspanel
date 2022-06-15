@@ -173,12 +173,13 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (_client != null) 
             { 
-                if (_client.State == HubConnectionState.Disconnected)
+                if (!_client.State.HasValue || _client.State == HubConnectionState.Disconnected)
                 {
                     _logger.LogInformation("starting hosted service");
                     try
                     {
-                        await _client.StartAsync(cancellationToken);
+                        await _client.StartAsync(cancellationToken); 
+                        OnChanged?.Invoke(_client.State, null);
                     }
                     catch (Exception ex)
                     {
@@ -187,7 +188,7 @@ namespace Sufficit.Telephony.EventsPanel
                 }
                 else
                 {
-                    _logger.LogDebug($"starting hosted service notice status: { _client.State.ToString() }");
+                    _logger.LogDebug($"starting hosted service notice status: { _client?.State }");
                 }                 
             }
             else
