@@ -57,21 +57,21 @@ namespace Sufficit.Telephony.EventsPanel
 
         #region ON CHANGE EVENTS
 
-        private event Action<T?>? _onChanged;
+        private event Action<T?, NotifyCollectionChangedAction>? _onChanged;
 
         /// <summary>
         /// Monitor changes in the collection, numeric changes, add, remove, etc <br />
         /// Not internal items changes
         /// </summary>
-        public  event Action<T?>? OnChanged
+        public  event Action<T?, NotifyCollectionChangedAction>? OnChanged
         {
             add { if(!IsEventHandlerRegistered(value)) _onChanged += value; }
             remove { _onChanged -= value; }
         }
 
-        protected void Changed(T? card)
+        protected void Changed(T? card, NotifyCollectionChangedAction action)
         {
-            _onChanged?.Invoke(card);
+            _onChanged?.Invoke(card, action);
         }
 
         public bool IsEventHandlerRegistered(Delegate? prospectiveHandler)
@@ -113,7 +113,7 @@ namespace Sufficit.Telephony.EventsPanel
             if(updated)
             {
                 // Trigering collection changed
-                Changed(item);
+                Changed(item, NotifyCollectionChangedAction.Add);
             }
         }
 
@@ -135,7 +135,7 @@ namespace Sufficit.Telephony.EventsPanel
             if (updated)
             {
                 // Trigering collection changed
-                Changed(item);
+                Changed(item, NotifyCollectionChangedAction.Remove);
             }
 
             return updated;
@@ -162,7 +162,7 @@ namespace Sufficit.Telephony.EventsPanel
                 _items.Clear();
 
                 // Trigering collection changed
-                Changed(default);                
+                Changed(default, NotifyCollectionChangedAction.Reset);                
             }
         }
 

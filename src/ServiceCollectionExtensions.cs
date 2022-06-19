@@ -15,7 +15,8 @@ namespace Sufficit.Telephony.EventsPanel
         {
             var provider = services.BuildServiceProvider();
             var configuration = provider.GetRequiredService<IConfiguration>();
-
+            
+            services.Configure<EventsPanelServiceCards>(configuration.GetSection(EventsPanelServiceCards.SECTIONNAME));
             services.Configure<EventsPanelServiceOptions>(configuration.GetSection(EventsPanelServiceOptions.SECTIONNAME));
             services.Configure<AMIHubClientOptions>(configuration.GetSection(AMIHubClientOptions.SECTIONNAME));
             services.Configure<EventsPanelCardOptions>(configuration.GetSection(EventsPanelCardOptions.SECTIONNAME));

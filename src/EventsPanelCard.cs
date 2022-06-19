@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public abstract class EventsPanelCard : IMultipleKey
+    public abstract class EventsPanelCard : IMultipleKey, IEquatable<EventsPanelCardInfo>
     {
         public string[] Keys { get; set; } = Array.Empty<string>();
 
@@ -86,6 +86,21 @@ namespace Sufficit.Telephony.EventsPanel
             }
             return false;
         }
+
+        public bool Equals(EventsPanelCardInfo? other)
+        {
+            if(other != null)
+            {
+                if(other.Equals(this.Info)) return true;
+            }
+            return false;
+        }
+
+        public override bool Equals(object? other)
+            => other != null && other is EventsPanelCard p && p.Equals(this.Info);
+
+        public override int GetHashCode()
+            => this.Info.GetHashCode();
 
         /// <summary>
         /// Get the underlaying card from that monitor

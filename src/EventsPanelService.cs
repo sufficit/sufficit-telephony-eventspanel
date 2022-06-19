@@ -7,6 +7,7 @@ using Sufficit.Asterisk;
 using Sufficit.Asterisk.Manager.Events;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -27,6 +28,21 @@ namespace Sufficit.Telephony.EventsPanel
         public QueueInfoCollection Queues { get; }
         public ICollection<Exception> Exceptions { get; }
 
+        /// <summary>
+        /// On Status Changed or Exception occurs
+        /// </summary>
+        public event Action<HubConnectionState?, Exception?>? OnChanged;
+
+        /// <summary>
+        /// On base cards collection changed
+        /// </summary>
+        public event Action<EventsPanelCard?, NotifyCollectionChangedAction>? OnCardsChanged;
+
+        /// <summary>
+        /// On event received from servers
+        /// </summary>
+        public event Action<IEnumerable<string>, IManagerEventFromAsterisk>? OnEvent;
+
         public EventsPanelService(IServiceProvider provider)
         {
             Exceptions = new List<Exception>();
@@ -40,7 +56,10 @@ namespace Sufficit.Telephony.EventsPanel
             if (cardsImplementation != null)
                 _cards = cardsImplementation;
             else 
-                _cards = new EventsPanelCardCollection();           
+                _cards = new EventsPanelCardCollection();
+
+            // appending event handler
+            _cards.OnChanged += OnCardsChanged;
 
             _logger = _provider.GetRequiredService<ILogger<EventsPanelService>>();
             var client = _provider.GetService<AMIHubClient>();
@@ -56,7 +75,7 @@ namespace Sufficit.Telephony.EventsPanel
 
             _logger.LogTrace($"Serviço de Controle { GetType().Name } construído !");
         }
-
+               
         public async void Configure(AMIHubClient client)
         {
             if(client != null && !client.Equals(_client))
@@ -121,18 +140,30 @@ namespace Sufficit.Telephony.EventsPanel
 
                 //_logger.LogDebug($"event: {@event.GetType()}, cardKeys: {string.Join('|', cardKeys)}");
 
-                OnEvent?.Invoke(cardKeys, @event);
-                /*              
-                // handling auto discover cards
-                var newEvent = @event;
-                var cards = new HashSet<EventsPanelCard>();
-                foreach (var key in cardKeys)
-                    foreach (var card in HandleCard(key, newEvent))
-                        cards.Add(card);
 
+                // handling auto discover cards
+                if (Options != null && Options.AutoFill)
+                {
+                    var newEvent = @event;
+                    var cards = new HashSet<EventsPanelCard>();
+                    foreach (var key in cardKeys)
+                    {
+                        //_logger.LogDebug($"card: {key}");
+                        foreach (var card in HandleCard(key, newEvent))
+                        {
+                            //_logger.LogDebug($"card: {card.Label} :: { string.Join(" | ", card.Keys) }");
+                            cards.Add(card);
+                        }
+                    }
+                }
+
+                /*
                 foreach (var card in cards)
                     this.Event(card, newEvent);                    
                 */
+
+
+                OnEvent?.Invoke(cardKeys, @event);
             }
             catch (Exception ex)
             {
@@ -140,7 +171,6 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        public event Action<IEnumerable<string>, IManagerEventFromAsterisk>? OnEvent;
 
         private void ClientChanged(HubConnectionState? state, Exception? ex)
             => OnChanged?.Invoke(state, ex);
@@ -228,9 +258,6 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        protected async Task<IEnumerable<EventsPanelCard>> HandleCardAsync(string key, IManagerEvent eventObj)
-            => await Task.Run(() => HandleCard(key, eventObj));
-
         protected IEnumerable<EventsPanelCard> HandleCard(string key, IManagerEvent eventObj)
         {
             var cards = HandleCardByKey(key);
@@ -247,13 +274,29 @@ namespace Sufficit.Telephony.EventsPanel
             if (!ShouldFillQueues && cardMonitor.Info.Kind == EventsPanelCardKind.QUEUE)
                 return Array.Empty<EventsPanelCard>();
 
-            //_logger.LogDebug($"adding a new card, kind: {cardMonitor.Info.Kind}, search key: { key }, card keys: { string.Join('|', cardMonitor.Keys) }");
+            _logger.LogDebug($"adding a new card, kind: {cardMonitor.Info.Kind}, search key: { key }, card keys: { string.Join('|', cardMonitor.Keys) }");
             _cards.Add(cardMonitor); // include global
 
             return new[] { cardMonitor };
         }
 
         #endregion        
+
+        /// <summary>
+        /// Return base cards generated;
+        /// </summary>
+        /// <returns></returns>
+        public IEnumerable<EventsPanelCard> GetCards() => _cards;
+
+        public bool Append(EventsPanelCard card)
+        {
+            if (!_cards.Contains(card))
+            {
+                _cards.Add(card);
+                return true;
+            }
+            return false;
+        }
 
         public bool IsConnected => _client?.State == HubConnectionState.Connected;
 
@@ -265,10 +308,6 @@ namespace Sufficit.Telephony.EventsPanel
 
         public Panel Panel { get; }
 
-        /// <summary>
-        /// On Status Changed or Exception occurs
-        /// </summary>
-        public event Action<HubConnectionState?, Exception?>? OnChanged;
 
         public async Task GetPeerStatus(CancellationToken cancellationToken = default)
         {

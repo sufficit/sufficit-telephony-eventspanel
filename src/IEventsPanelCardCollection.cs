@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static Sufficit.Telephony.EventsPanel.IMonitor;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -17,7 +13,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         IList<T> ToList<T>();
 
-        event Action<EventsPanelCard?>? OnChanged;
+        event Action<EventsPanelCard?, NotifyCollectionChangedAction>? OnChanged;
 
         IEnumerable<EventsPanelTrunkCard> Trunks { get; }
 

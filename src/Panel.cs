@@ -1,6 +1,7 @@
 ﻿using Sufficit.Asterisk.Manager.Events;
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,6 +15,10 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public event Action<Panel>? OnChanged;
 
+        public IEventsPanelOptions Options { get; internal set; }
+
+        public IEventsPanelCardCollection Cards { get; }
+
         private readonly EventsPanelService _service;
 
         public Panel(IEventsPanelCardCollection cards, EventsPanelService service)
@@ -23,6 +28,21 @@ namespace Sufficit.Telephony.EventsPanel
             Options = new EventsPanelOptions();
 
             _service.OnEvent += OnEvent;
+
+            if (Options.AutoFill)
+                foreach (var card in _service.GetCards())
+                    Cards.Add(card);
+
+            _service.OnCardsChanged += OnCardsChanged;
+        }
+
+        private void OnCardsChanged(EventsPanelCard? obj, NotifyCollectionChangedAction action)
+        {
+            if (obj != null && Options.AutoFill)
+            {
+                Cards.Add(obj); 
+                OnChanged?.Invoke(this);
+            }
         }
 
         /// <summary>
@@ -30,8 +50,11 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public void Dispose()
         {
-            if(_service != null)
+            if (_service != null)
+            {
                 _service.OnEvent -= OnEvent;
+                _service.OnCardsChanged -= OnCardsChanged;
+            }
         }
 
         private void OnEvent(IEnumerable<string> keys, IManagerEventFromAsterisk @event)
@@ -64,6 +87,13 @@ namespace Sufficit.Telephony.EventsPanel
             if (options != null && !options.Equals(Options))
             {
                 Options = options;
+                if (Options.AutoFill)
+                {
+                    foreach (var card in _service.GetCards())
+                        if(!Cards.Contains(card))
+                            Cards.Add(card);
+                }
+
                 OnChanged?.Invoke(this);
             }
         }
@@ -71,17 +101,23 @@ namespace Sufficit.Telephony.EventsPanel
         public virtual void Update(IEnumerable<EventsPanelCardInfo> cards, bool clear = false)
         {
             if(clear) Cards.Clear();
+
+            if (Options.AutoFill)
+            {
+                foreach (var card in _service.GetCards())
+                    if (!Cards.Contains(card))
+                        Cards.Add(card);
+            }
+
             foreach (var card in cards)
             {
                 var cardMonitor = EventsPanelCardExtensions.CardCreate(card, _service);
-                Cards.Add(cardMonitor);
-            }
+                if (!Cards.Contains(cardMonitor))
+                    Cards.Add(cardMonitor);
+            }            
 
             OnChanged?.Invoke(this);
         }
 
-        public IEventsPanelOptions Options { get; internal set; }
-
-        public IEventsPanelCardCollection Cards { get; }
     }
 }
