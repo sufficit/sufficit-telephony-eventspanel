@@ -22,7 +22,6 @@ namespace Sufficit.Telephony.EventsPanel
             services.Configure<EventsPanelCardOptions>(configuration.GetSection(EventsPanelCardOptions.SECTIONNAME));
             services.AddSingleton<AMIHubClient>();
             services.TryAddSingleton<EventsPanelService>();
-            services.AddHostedService(x => x.GetRequiredService<EventsPanelService>());
 
             return services;
         }

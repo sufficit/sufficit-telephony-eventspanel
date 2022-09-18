@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager;
@@ -11,52 +12,59 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class AMIHubClient : IAsyncDisposable
+    public class AMIHubClient : IAsyncDisposable, IHostedService
     {
         private readonly ILogger<AMIHubClient> _logger;
-        private AMIHubClientOptions? _options;
+        private readonly AMIHubClientOptions _options;
+        private readonly HubConnection _hub;
 
-        protected HubConnection? Hub { get; set; }
+        /// <summary>
+        /// Default Singleton service provider constructor
+        /// </summary>
+        /// <param name="options"></param>
+        /// <param name="logger"></param>
+        public AMIHubClient(IOptions<AMIHubClientOptions> options, ILogger<AMIHubClient> logger) : this(options.Value, logger) { }
 
-        public AMIHubClient(ILogger<AMIHubClient> logger, IOptionsMonitor<AMIHubClientOptions> monitor)
+        public AMIHubClient(AMIHubClientOptions options, ILogger<AMIHubClient> logger)
         {
             _logger = logger;
+            _options = options;
 
-            var options = monitor.CurrentValue;
-            if (options.Validate() == null)
-                Configure(options);
-
-            monitor.OnChange(Configure);           
+            // creating hub
+            _hub = Create(_options);
         }
 
-        public AMIHubClient(AMIHubClientOptions options, ILogger<AMIHubClient>? logger = default)
+        public AMIHubClient(AMIHubClientOptions options) : this(options, new LoggerFactory().CreateLogger<AMIHubClient>())
         {
-            if (logger != null) _logger = logger;
-            else _logger = new LoggerFactory().CreateLogger<AMIHubClient>();
-
-            Configure(options);
+            
         }
 
-        public void Configure(AMIHubClientOptions options)
+        protected HubConnection Create(AMIHubClientOptions options)
         {
-            if (options != null && options != _options)
-            {                
-                _options = options.ValidateAndThrow();
+            if (options == null)
+                throw new ArgumentNullException(nameof(options));
 
-                var uri = _options.Endpoint;
-                if (uri != null)
-                {
-                    Hub = new HubConnectionBuilder()
-                        .WithUrl(uri)
-                        .WithAutomaticReconnect()
-                        .Build();
-                    
-                    Hub.Closed += _hub_Closed;
-                    Hub.Reconnected += _hub_Reconnected;
-                    Hub.Reconnecting += _hub_Reconnecting;
-                    Hub.On<string>("System", _hub_SystemMessage);
-                }
-            }
+            options.ValidateAndThrow();
+                
+            _logger.LogDebug($"configuring ami hub to endpoint: {options.EndPoint}");
+            var hub = new HubConnectionBuilder()
+                    .WithUrl(options.EndPoint, (opts) =>
+                    {
+                        opts.HttpMessageHandlerFactory = (message) =>
+                        {
+                            if (message is HttpClientHandler clientHandler)
+                                clientHandler.ServerCertificateCustomValidationCallback += (sender, certificate, chain, sslPolicyErrors) => { return true; };
+                            return message;
+                        };
+                    })
+                    .WithAutomaticReconnect()
+                    .Build();
+
+            hub.Closed += _hub_Closed;
+            hub.Reconnected += _hub_Reconnected;
+            hub.Reconnecting += _hub_Reconnecting;
+            hub.On<string>("System", _hub_SystemMessage);
+            return hub;
         }
 
         private void _hub_SystemMessage(string? message)
@@ -93,25 +101,19 @@ namespace Sufficit.Telephony.EventsPanel
         {
             var key = typeof(T).Name;
             _logger.LogDebug($"Registering key: {key}");
-            return Hub?.On(key, action);
+            return _hub.On(key, action);
         }
 
         public IDisposable? Register<T>(Action<string, T> action) where T : IManagerEvent, new()
         {
             var key = typeof(T).Name;
             _logger.LogDebug($"Registering key: {key}");
-            return Hub?.On(key, action);
+            return _hub.On(key, action);
         }
 
-        public async Task StartAsync(CancellationToken cancellationToken = default)
-        {
-            if (Hub == null)
-                throw new Exception("no hub configured");
+        public AMIHubClientOptions Options => _options;
 
-            await Hub.StartAsync(cancellationToken);
-        }
-
-        public HubConnectionState? State => Hub?.State;
+        public HubConnectionState? State => _hub.State;
 
         public event Action<HubConnectionState?, Exception?>? OnChanged;
 
@@ -119,23 +121,34 @@ namespace Sufficit.Telephony.EventsPanel
 
         public async Task GetPeerStatus(CancellationToken cancellationToken = default)
         {
-            if (Hub != null && Hub.State == HubConnectionState.Connected)    
-                await Hub.InvokeAsync("GetPeerStatus", cancellationToken);
+            if (_hub.State == HubConnectionState.Connected)    
+                await _hub.InvokeAsync("GetPeerStatus", cancellationToken);
         }
 
         public async Task GetQueueStatus(string queue, string member, CancellationToken cancellationToken = default)
         {
-            if (Hub != null && Hub.State == HubConnectionState.Connected)
-                await Hub.InvokeAsync("GetQueueStatus", queue, member);
+            if (_hub.State == HubConnectionState.Connected)
+                await _hub.InvokeAsync("GetQueueStatus", queue, member);
         }
 
         public async ValueTask DisposeAsync()
         {
-            if(Hub != null)
-                await Hub.DisposeAsync();
-
+            await _hub.DisposeAsync();
             OnChanged = null;
-            _options = null;
         }
+
+        #region IMPLEMENTAÇÃO DA INTERFACE IHOSTED SERVICE
+
+        public async Task StartAsync(CancellationToken cancellationToken)
+        {
+            await _hub.StartAsync(cancellationToken);
+        }
+
+        public async Task StopAsync(CancellationToken cancellationToken)
+        {
+            await _hub.StopAsync(cancellationToken);
+        }
+
+        #endregion
     }
 }

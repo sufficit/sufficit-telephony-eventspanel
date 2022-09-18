@@ -16,10 +16,9 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public partial class EventsPanelService : IHostedService
+    public partial class EventsPanelService
     {
         private readonly ILogger _logger;
-        private AMIHubClient? _client;
         private readonly IEventsPanelCardCollection _cards;
         private readonly IServiceProvider _provider;
 
@@ -27,6 +26,9 @@ namespace Sufficit.Telephony.EventsPanel
         public PeerInfoCollection Peers { get; }
         public QueueInfoCollection Queues { get; }
         public ICollection<Exception> Exceptions { get; }
+
+
+        public AMIHubClient? Client { get; internal set; }
 
         /// <summary>
         /// On Status Changed or Exception occurs
@@ -62,11 +64,13 @@ namespace Sufficit.Telephony.EventsPanel
             _cards.OnChanged += OnCardsChanged;
 
             _logger = _provider.GetRequiredService<ILogger<EventsPanelService>>();
-            var client = _provider.GetService<AMIHubClient>();
-            if(client != null)
+
+            var hubclientOptions = _provider.GetService<IOptions<AMIHubClientOptions>>();
+            if (hubclientOptions != null && hubclientOptions.Value.Validate == null)
             {
-                Configure(client);
-            }
+                var client = _provider.GetService<AMIHubClient>();
+                if (client != null) Configure(client);                
+            }            
 
             Panel = new Panel(_cards, this);
             var monitor = _provider.GetService<IOptionsMonitor<EventsPanelServiceOptions>>();
@@ -78,35 +82,35 @@ namespace Sufficit.Telephony.EventsPanel
                
         public async void Configure(AMIHubClient client)
         {
-            if(client != null && !client.Equals(_client))
+            if(client != null && !client.Equals(Client))
             {
-                if(_client != null)                
-                    await _client.DisposeAsync();                
+                if(Client != null)                
+                    await Client.DisposeAsync();
 
-                _client = client;
-                _client.OnChanged += ClientChanged;
+                Client = client;
+                Client.OnChanged += ClientChanged;
 
-                _client.Register<PeerStatusEvent>(IManagerEventHandler);
-                _client.Register<NewChannelEvent>(IManagerEventHandler);
-                _client.Register<NewStateEvent>(IManagerEventHandler);
-                _client.Register<HangupEvent>(IManagerEventHandler);
-                _client.Register<StatusEvent>(IManagerEventHandler);
-                _client.Register<PeerEntryEvent>(IManagerEventHandler);
+                Client.Register<PeerStatusEvent>(IManagerEventHandler);
+                Client.Register<NewChannelEvent>(IManagerEventHandler);
+                Client.Register<NewStateEvent>(IManagerEventHandler);
+                Client.Register<HangupEvent>(IManagerEventHandler);
+                Client.Register<StatusEvent>(IManagerEventHandler);
+                Client.Register<PeerEntryEvent>(IManagerEventHandler);
 
                 // events queue and channels
-                _client.Register<QueueCallerJoinEvent>(IManagerEventHandler);
-                _client.Register<QueueCallerAbandonEvent>(IManagerEventHandler);
-                _client.Register<QueueCallerLeaveEvent>(IManagerEventHandler);
+                Client.Register<QueueCallerJoinEvent>(IManagerEventHandler);
+                Client.Register<QueueCallerAbandonEvent>(IManagerEventHandler);
+                Client.Register<QueueCallerLeaveEvent>(IManagerEventHandler);
 
-                _client.Register<QueueMemberAddedEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberPauseEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberPenaltyEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberRemovedEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberRinginuseEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberStatusEvent>(IManagerEventHandler);
+                Client.Register<QueueMemberAddedEvent>(IManagerEventHandler);
+                Client.Register<QueueMemberPauseEvent>(IManagerEventHandler);
+                Client.Register<QueueMemberPenaltyEvent>(IManagerEventHandler);
+                Client.Register<QueueMemberRemovedEvent>(IManagerEventHandler);
+                Client.Register<QueueMemberRinginuseEvent>(IManagerEventHandler);
+                Client.Register<QueueMemberStatusEvent>(IManagerEventHandler);
 
-                _client.Register<QueueParamsEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberEvent>(IManagerEventHandler);
+                Client.Register<QueueParamsEvent>(IManagerEventHandler);
+                Client.Register<QueueMemberEvent>(IManagerEventHandler);
             }
         }
 
@@ -196,47 +200,7 @@ namespace Sufficit.Telephony.EventsPanel
                 _logger.LogInformation($"Configuração atualizada, Max Buttons: { Options.MaxButtons }, Cards: { Options.Cards.Count() }, ShowTrunks: { Options.ShowTrunks }");
             }
         }
-
-        #region IMPLEMENTAÇÃO DA INTERFACE IHOSTED SERVICE
-
-        public async Task StartAsync(CancellationToken cancellationToken)
-        {
-            if (_client != null) 
-            { 
-                if (!_client.State.HasValue || _client.State == HubConnectionState.Disconnected)
-                {
-                    _logger.LogInformation("starting hosted service");
-                    try
-                    {
-                        await _client.StartAsync(cancellationToken); 
-                        OnChanged?.Invoke(_client.State, null);
-                    }
-                    catch (Exception ex)
-                    {
-                        OnChanged?.Invoke(_client.State, ex);
-                    }
-                }
-                else
-                {
-                    _logger.LogDebug($"starting hosted service notice status: { _client?.State }");
-                }                 
-            }
-            else
-            {
-                _logger.LogWarning("starting hosted service fail: hub client null");
-            }
-        }
-
-        public async Task StopAsync(CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("Queued Hosted Service is stopping.");
-            if(_client != null)
-            {
-                await _client.DisposeAsync();
-            }
-        }
-
-        #endregion
+        
         #region EVENT HANDLERS
 
         protected bool LimitReached => Options?.MaxButtons > 0 && _cards.Count >= Options.MaxButtons;
@@ -298,27 +262,26 @@ namespace Sufficit.Telephony.EventsPanel
             return false;
         }
 
-        public bool IsConnected => _client?.State == HubConnectionState.Connected;
+        public bool IsConnected => Client?.State == HubConnectionState.Connected;
 
-        public bool IsTrying => _client?.State == HubConnectionState.Connecting || _client?.State == HubConnectionState.Reconnecting;
+        public bool IsTrying => Client?.State == HubConnectionState.Connecting || Client?.State == HubConnectionState.Reconnecting;
 
-        public bool IsConfigured => _client != null;
+        public bool IsConfigured => Client != null;
 
-        public HubConnectionState? State => _client?.State;
+        public HubConnectionState? State => Client?.State;
 
         public Panel Panel { get; }
 
-
         public async Task GetPeerStatus(CancellationToken cancellationToken = default)
         {
-            if (_client != null && _client.State == HubConnectionState.Connected)
-                await _client.GetPeerStatus(cancellationToken);
+            if (Client != null && Client.State == HubConnectionState.Connected)
+                await Client.GetPeerStatus(cancellationToken);
         }
 
         public async Task GetQueueStatus(string queue, string member, CancellationToken cancellationToken = default)
         {
-            if (_client != null && _client.State == HubConnectionState.Connected)
-                await _client.GetQueueStatus(queue, member, cancellationToken);
+            if (Client != null && Client.State == HubConnectionState.Connected)
+                await Client.GetQueueStatus(queue, member, cancellationToken);
         }
 
         public delegate Task<string> AsyncTaskMonitor(EventsPanelCard monitor);
