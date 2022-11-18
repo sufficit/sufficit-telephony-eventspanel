@@ -46,9 +46,9 @@ namespace Sufficit.Telephony.EventsPanel
 
             options.ValidateAndThrow();
                 
-            _logger.LogDebug($"configuring ami hub to endpoint: {options.EndPoint}");
+            _logger.LogDebug($"configuring ami hub to endpoint: {options.Endpoint}");
             var hub = new HubConnectionBuilder()
-                    .WithUrl(options.EndPoint, (opts) =>
+                    .WithUrl(options.Endpoint, (opts) =>
                     {
                         opts.HttpMessageHandlerFactory = (message) =>
                         {

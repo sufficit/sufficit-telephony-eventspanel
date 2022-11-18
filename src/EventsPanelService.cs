@@ -16,8 +16,23 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public partial class EventsPanelService
+    public partial class EventsPanelService : IEventsPanelService
     {
+        #region IMPLEMENT INTERFACE EVENTSPANEL SERVICE
+
+        public bool IsConfigured => Client != null;
+
+        public void Configure(AMIHubClientOptions options)
+            => Configure(new AMIHubClient(options));
+
+        Task IEventsPanelService.StartAsync(System.Threading.CancellationToken cancellationToken)
+            => Client!.StartAsync(cancellationToken);
+
+        Task IEventsPanelService.StopAsync(System.Threading.CancellationToken cancellationToken)
+            => Client!.StopAsync(cancellationToken);
+
+        #endregion
+
         private readonly ILogger _logger;
         private readonly IEventsPanelCardCollection _cards;
         private readonly IServiceProvider _provider;
@@ -76,13 +91,14 @@ namespace Sufficit.Telephony.EventsPanel
             var monitor = _provider.GetService<IOptionsMonitor<EventsPanelServiceOptions>>();
             if (monitor != null)
             {
-                OnConfigure(monitor?.CurrentValue);
+                OnConfigure(monitor.CurrentValue);
                 monitor.OnChange(OnConfigure);
             }
 
             _logger.LogTrace($"Serviço de Controle { GetType().Name } construído !");
         }
                
+
         public async void Configure(AMIHubClient client)
         {
             if(client != null && !client.Equals(Client))
@@ -269,7 +285,6 @@ namespace Sufficit.Telephony.EventsPanel
 
         public bool IsTrying => Client?.State == HubConnectionState.Connecting || Client?.State == HubConnectionState.Reconnecting;
 
-        public bool IsConfigured => Client != null;
 
         public HubConnectionState? State => Client?.State;
 
