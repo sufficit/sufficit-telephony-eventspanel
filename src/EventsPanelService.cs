@@ -74,8 +74,11 @@ namespace Sufficit.Telephony.EventsPanel
 
             Panel = new Panel(_cards, this);
             var monitor = _provider.GetService<IOptionsMonitor<EventsPanelServiceOptions>>();
-            OnConfigure(monitor?.CurrentValue);
-            monitor.OnChange(OnConfigure);                        
+            if (monitor != null)
+            {
+                OnConfigure(monitor?.CurrentValue);
+                monitor.OnChange(OnConfigure);
+            }
 
             _logger.LogTrace($"Serviço de Controle { GetType().Name } construído !");
         }
