@@ -141,7 +141,13 @@ namespace Sufficit.Telephony.EventsPanel
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {
-            await _hub.StartAsync(cancellationToken);
+            try
+            {
+                await _hub.StartAsync(cancellationToken);
+            }catch(Exception ex)
+            {
+                _logger.LogError(ex.Message, ex);
+            }
         }
 
         public async Task StopAsync(CancellationToken cancellationToken)
