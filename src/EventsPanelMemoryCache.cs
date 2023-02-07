@@ -16,7 +16,7 @@ namespace Sufficit.Telephony.EventsPanel
         {
             //not region name, aparently region is not supported
             var cacheName = Guid.NewGuid().ToString();
-            cache = new MemoryCache(cacheName, null);
+            cache = new MemoryCache(cacheName);
 
             if (expiration != default(TimeSpan))
                 defaultExpiration = expiration;
