@@ -11,6 +11,13 @@ namespace Sufficit.Telephony.EventsPanel
     public class Panel : IDisposable
     {
         /// <summary>
+        /// Indicates that this panel has any card configured
+        /// </summary>
+        /// <returns></returns>
+        public bool HasCards()
+            => Cards.Any();
+
+        /// <summary>
         /// Monitor changes on panel options
         /// </summary>
         public event Action<Panel>? OnChanged;
@@ -26,6 +33,21 @@ namespace Sufficit.Telephony.EventsPanel
             _service = service;
             Cards = cards;
             Options = new EventsPanelOptions();
+
+            _service.OnEvent += OnEvent;
+
+            if (Options.AutoFill)
+                foreach (var card in _service.GetCards())
+                    Cards.Add(card);
+
+            _service.OnCardsChanged += OnCardsChanged;
+        }
+
+        public Panel(EventsPanelOptions options, EventsPanelService service)
+        {
+            _service = service;
+            Cards = new EventsPanelCardCollection();
+            Options = options;
 
             _service.OnEvent += OnEvent;
 
