@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class AMIHubClient : IAsyncDisposable, IHostedService
+    public class AMIHubClient : BackgroundService, IAsyncDisposable, IHostedService
     {
         private readonly ILogger<AMIHubClient> _logger;
         private readonly AMIHubClientOptions _options;
@@ -138,6 +138,11 @@ namespace Sufficit.Telephony.EventsPanel
         }
 
         #region IMPLEMENTAÇÃO DA INTERFACE IHOSTED SERVICE
+
+        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
+        {
+            
+        }
 
         public async Task StartAsync(CancellationToken cancellationToken)
         {

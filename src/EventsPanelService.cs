@@ -12,11 +12,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public partial class EventsPanelService : IEventsPanelService
+    public partial class EventsPanelService : BackgroundService, IEventsPanelService
     {
         #region IMPLEMENT INTERFACE EVENTSPANEL SERVICE
 
@@ -25,11 +26,25 @@ namespace Sufficit.Telephony.EventsPanel
         public void Configure(AMIHubClientOptions options)
             => Configure(new AMIHubClient(options));
 
+        Task IEventsPanelService.ExecuteAsync(CancellationToken stoppingToken) => ExecuteAsync(stoppingToken);
+
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            await Client!.StartAsync(stoppingToken);
+
+            while (!stoppingToken.IsCancellationRequested)
+                await Task.Yield();
+
+            await Client!.StopAsync(stoppingToken);
+        }
+
+        /*
         Task IEventsPanelService.StartAsync(System.Threading.CancellationToken cancellationToken)
             => Client!.StartAsync(cancellationToken);
 
         Task IEventsPanelService.StopAsync(System.Threading.CancellationToken cancellationToken)
             => Client!.StopAsync(cancellationToken);
+        */
 
         #endregion
 
