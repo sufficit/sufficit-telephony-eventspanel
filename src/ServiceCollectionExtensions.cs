@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Hosting;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -20,10 +21,11 @@ namespace Sufficit.Telephony.EventsPanel
             services.Configure<EventsPanelServiceOptions>(configuration.GetSection(EventsPanelServiceOptions.SECTIONNAME));
             services.Configure<AMIHubClientOptions>(configuration.GetSection(AMIHubClientOptions.SECTIONNAME));
             services.Configure<EventsPanelCardOptions>(configuration.GetSection(EventsPanelCardOptions.SECTIONNAME));
-            services.AddSingleton<AMIHubClient>();
+
+            services.AddTransient<AMIHubClient>();
 
             services.TryAddSingleton<EventsPanelService>();
-            services.TryAddSingleton<IEventsPanelService>(s => s.GetRequiredService<EventsPanelService>());
+            services.TryAddSingleton<IEventsPanelService>((provider) => provider.GetRequiredService<EventsPanelService>());
 
             return services;
         }

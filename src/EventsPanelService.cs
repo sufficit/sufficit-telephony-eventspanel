@@ -23,31 +23,29 @@ namespace Sufficit.Telephony.EventsPanel
 
         public bool IsConfigured => Client != null;
 
-        public void Configure(AMIHubClientOptions options)
-            => Configure(new AMIHubClient(options));
-
         Task IEventsPanelService.ExecuteAsync(CancellationToken stoppingToken) => ExecuteAsync(stoppingToken);
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await Client!.StartAsync(stoppingToken);
+            do
+            {
+                if (Client != null)
+                {
+                    await Client.StartAsync(stoppingToken);
 
-            while (!stoppingToken.IsCancellationRequested)
-                await Task.Yield();
+                    while (!stoppingToken.IsCancellationRequested)
+                        await Task.Yield();
 
-            await Client!.StopAsync(stoppingToken);
+                    await Client.StopAsync(stoppingToken);
+                } 
+                else { await Task.Yield(); }
+            }
+            while (!stoppingToken.IsCancellationRequested);                              
         }
-
-        /*
-        Task IEventsPanelService.StartAsync(System.Threading.CancellationToken cancellationToken)
-            => Client!.StartAsync(cancellationToken);
-
-        Task IEventsPanelService.StopAsync(System.Threading.CancellationToken cancellationToken)
-            => Client!.StopAsync(cancellationToken);
-        */
 
         #endregion
 
+        private readonly IDisposable? _optionsMonitor;
         private readonly ILogger _logger;
         private readonly IEventsPanelCardCollection _cards;
         private readonly IServiceProvider _provider;
@@ -94,25 +92,38 @@ namespace Sufficit.Telephony.EventsPanel
             _cards.OnChanged += OnCardsChanged;
 
             _logger = _provider.GetRequiredService<ILogger<EventsPanelService>>();
-
-            var hubclientOptions = _provider.GetService<IOptions<AMIHubClientOptions>>();
-            if (hubclientOptions != null && hubclientOptions.Value.Validate == null)
-            {
-                var client = _provider.GetService<AMIHubClient>();
-                if (client != null) Configure(client);                
-            }            
+           
+            var client = _provider.GetService<AMIHubClient>();
+            if (client != null)
+                Configure(client); 
 
             Panel = new Panel(_cards, this);
-            var monitor = _provider.GetService<IOptionsMonitor<EventsPanelServiceOptions>>();
-            if (monitor != null)
-            {
-                OnConfigure(monitor.CurrentValue);
-                monitor.OnChange(OnConfigure);
-            }
+
+            var monitor = _provider.GetRequiredService<IOptionsMonitor<EventsPanelServiceOptions>>();
+            _optionsMonitor = monitor.OnChange(Configure);            
 
             _logger.LogTrace($"Serviço de Controle { GetType().Name } construído !");
         }
-               
+
+        public void Configure(EventsPanelServiceOptions options)
+        {
+            _logger.LogDebug($"trying to parse options");
+            if (!options.Equals(Options))
+            {
+                Options = options;
+                if (Options.Cards.Any())
+                {
+                    foreach (var card in Options.Cards)
+                    {
+                        var cardMonitor = EventsPanelCardExtensions.CardCreate(card, this);
+                        _cards.Add(cardMonitor);
+                    }
+                }
+
+                Panel.Update(Options);
+                _logger.LogInformation($"Configuração atualizada, Max Buttons: {Options.MaxButtons}, Cards: {Options.Cards.Count()}, ShowTrunks: {Options.ShowTrunks}");                
+            }
+        }
 
         public async void Configure(AMIHubClient client)
         {
@@ -148,6 +159,8 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
+
+
         public void IManagerEventHandler(string sender, IManagerEventFromAsterisk @event)
         {
             try
@@ -170,8 +183,8 @@ namespace Sufficit.Telephony.EventsPanel
                     }
                 }
 
-                if (@event is IPeerStatus peerStatusEvent)
-                    cardKeys.Add(HandleEvent(this, peerStatusEvent));
+                if (@event is IPeerStatus peerStatusEvent)                                        
+                    cardKeys.Add(HandleEvent(this, peerStatusEvent));                
 
                 if (@event is IQueueEvent eventQueue)                
                     cardKeys.Add(HandleEvent(this, eventQueue));
@@ -214,26 +227,7 @@ namespace Sufficit.Telephony.EventsPanel
             => OnChanged?.Invoke(state, ex);
 
         public EventsPanelServiceOptions? Options { get; internal set; }
-
-        public void OnConfigure(EventsPanelServiceOptions? options)
-        {
-            _logger.LogDebug($"trying to parse options");
-            if (options != null && !options.Equals(Options))
-            {
-                Options = options;
-                if (Options.Cards.Any())
-                {
-                    foreach (var card in Options.Cards)
-                    {                        
-                        var cardMonitor = EventsPanelCardExtensions.CardCreate(card, this);
-                        _cards.Add(cardMonitor);
-                    }
-                }
-
-                Panel.Update(Options);
-                _logger.LogInformation($"Configuração atualizada, Max Buttons: { Options.MaxButtons }, Cards: { Options.Cards.Count() }, ShowTrunks: { Options.ShowTrunks }");
-            }
-        }
+                
         
         #region EVENT HANDLERS
 

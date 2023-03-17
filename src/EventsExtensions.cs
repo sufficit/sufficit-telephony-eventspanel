@@ -79,7 +79,7 @@ namespace Sufficit.Telephony.EventsPanel
             var channel = new AsteriskChannel(key);
             var cardinfo = new EventsPanelCardInfo();
             cardinfo.Kind = EventsPanelCardKind.PEER;
-            cardinfo.Label = channel.Name;
+            cardinfo.Label = channel.Name ?? "Unlabeled";
             cardinfo.Channels.Add($"^{key}");
 
             return cardinfo.CardCreate(service);
@@ -119,7 +119,7 @@ namespace Sufficit.Telephony.EventsPanel
 
             var cardinfo = new EventsPanelCardInfo();            
             cardinfo.Kind = EventsPanelCardKind.PEER;
-            cardinfo.Label = channel.Name;
+            cardinfo.Label = channel.Name ?? "Unlabeled";
             cardinfo.Channels.Add($"^{ peerId }");
 
             return cardinfo.CardCreate(service);
