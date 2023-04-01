@@ -20,8 +20,13 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public const string SYSTEM = "System";
 
+        public const int DELAYMILLISECONDS = 30000;
+
         private readonly ManagerEventHandlerCollection _handlers;
         private readonly ILogger _logger;
+        private readonly IDisposable? _monitor;
+        private readonly int _instance;
+
         private HubConnection? _hub;
         private CancellationTokenSource? _cts;
         private AMIHubClientOptions? _options;
@@ -29,7 +34,7 @@ namespace Sufficit.Telephony.EventsPanel
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             _cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-            while (!stoppingToken.IsCancellationRequested)
+            do
             {
                 if (EnsureValidHub())
                 {
@@ -42,21 +47,29 @@ namespace Sufficit.Telephony.EventsPanel
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "error on connecting hub, trying again in 10 seconds");
-                            await Task.Delay(TimeSpan.FromSeconds(10));
+                            _logger.LogError(ex, "error on connecting hub, trying again in {time} milliseconds", DELAYMILLISECONDS);
+                            _ = await Delay(_cts.Token);
                         }
-                    }
-                    else
-                    {
-                        // yield to rotate again
-                        await Task.Yield();
                     }
                 } 
                 else
                 {
                     _cts.Cancel();
                 }               
+            } while (await Delay(_cts.Token));
+        }
+
+        private async Task<bool> Delay(CancellationToken cancellationToken)
+        {
+            if (cancellationToken.IsCancellationRequested)
+                return false;
+
+            try
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(DELAYMILLISECONDS), cancellationToken);
+                return true;
             }
+            catch (OperationCanceledException) { return false; }
         }
 
         protected bool EnsureValidHub()
@@ -72,7 +85,7 @@ namespace Sufficit.Telephony.EventsPanel
         /// Configure Hub Connection everytime that options changed
         /// </summary>
         protected async void Configure(AMIHubClientOptions options)
-        {   
+        {
             var validate = options.Validate();
             if (validate != null)
             { 
@@ -83,17 +96,18 @@ namespace Sufficit.Telephony.EventsPanel
             if (_options != null && _options.Equals(options))
                 return;
 
-            // updating last valid options
-            _options = options;
-
             if (_hub != null)
             {
+                _logger.LogInformation("({instance}) disposing old hub with endpoint: {endpoint}", _instance, _options?.Endpoint);
                 HandlersClear(_hub);
                 _hub.Remove(SYSTEM);
                 await _hub.DisposeAsync().ConfigureAwait(false);
             }
 
-            _logger.LogDebug("parsing options and creating hub");
+            // updating last valid options
+            _options = options;
+
+            _logger.LogDebug("({instance}) parsing options and creating hub with endpoint: {endpoint}", _instance, _options.Endpoint);
             _hub = new HubConnectionBuilder()
                     .WithUrl(_options.Endpoint!, (opts) =>
                     {
@@ -130,12 +144,13 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public AMIHubClient(IOptionsMonitor<AMIHubClientOptions> monitor, ILogger<AMIHubClient> logger)
         {
+            _instance = new Random().Next(0, 100);
             _handlers = new ManagerEventHandlerCollection();
-            _handlers.Registered += HanlderRegistered;
+            _handlers.Registered += HandlerRegistered;
 
             _logger = logger;
             Configure(monitor.CurrentValue);
-            monitor.OnChange(Configure);
+            _monitor = monitor.OnChange(Configure);
         }
 
         /// <summary>
@@ -143,7 +158,7 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         /// <param name="sender"></param>
         /// <param name="handler"></param>
-        private void HanlderRegistered(object? sender, ManagerEventHandler handler)
+        private void HandlerRegistered(object? sender, ManagerEventHandler handler)
         {
             if (_hub == null) return;
 
@@ -166,7 +181,7 @@ namespace Sufficit.Telephony.EventsPanel
         private void _hub_SystemMessage(string? message)
         {
             if (message != null)
-                _logger.LogWarning($"{SYSTEM} message: {{message}}", message);
+                _logger.LogWarning($"({SYSTEM}) message: {{message}}", message);
 
             OnChanged?.Invoke(State, null);
         }
@@ -252,6 +267,10 @@ namespace Sufficit.Telephony.EventsPanel
                     await _hub.DisposeAsync();
 
                 OnChanged = null;
+
+                // disposing options monitor
+                _monitor?.Dispose();
+                                
                 _disposed = true;
             }            
         }
