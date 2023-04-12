@@ -193,7 +193,10 @@ namespace Sufficit.Telephony.EventsPanel
 
         #endregion
 
-        public virtual void ItemChanged(IMonitor? sender, object? state) 
+        /// <summary>
+        /// On indivual internal item changed
+        /// </summary>
+        protected virtual void ItemChanged(IMonitor sender, object? state) 
         {
             // used to override
         }

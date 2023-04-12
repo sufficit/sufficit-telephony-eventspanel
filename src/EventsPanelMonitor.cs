@@ -18,16 +18,23 @@ namespace Sufficit.Telephony.EventsPanel
         /// <summary>
         /// Monitor changes on underlaying item properties, queue, peer, trunk
         /// </summary>
-        public event Action<IMonitor?, object?>? OnChanged;
+        public event Action<IMonitor, object?>? OnChanged;
+
+        /// <summary>
+        /// Last event received at
+        /// </summary>
+        public DateTime LastUpdate { get; set; }
 
         public EventsPanelMonitor(IKey content)
         {
             Content = content;
         }
 
-        public virtual void StateHasChanged() => OnChanged?.Invoke(this, null);
-
-        public virtual void Event(object @event) => OnChanged?.Invoke(this, @event);
+        public virtual void Event(object @event)
+        {
+            LastUpdate = DateTime.UtcNow;
+            OnChanged?.Invoke(this, @event);
+        }
 
         /// <summary>
         /// Should match to peer or queue to show in card

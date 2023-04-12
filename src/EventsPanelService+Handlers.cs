@@ -46,13 +46,12 @@ namespace Sufficit.Telephony.EventsPanel
             IMonitor? monitor = collection[key];
             if (monitor == null)
             {
-                switch (collection)
+                monitor = collection switch
                 {
-                    case MonitorCollection<PeerInfoMonitor>: monitor = new PeerInfoMonitor(key); break;
-                    case MonitorCollection<QueueInfoMonitor>: monitor = new QueueInfoMonitor(key); break;
-                    default: throw new ArgumentException("invalid type of imonitor");
-                }
-                
+                    MonitorCollection<PeerInfoMonitor> => new PeerInfoMonitor(key),
+                    MonitorCollection<QueueInfoMonitor> => new QueueInfoMonitor(key),
+                    _ => throw new ArgumentException("invalid type of imonitor"),
+                };
                 collection.Add((T)monitor);
             }
             return (T)monitor;

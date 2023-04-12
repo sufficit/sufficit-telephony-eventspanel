@@ -49,6 +49,8 @@ namespace Sufficit.Telephony.EventsPanel
                             _ = await Delay(_cts.Token);
                         }
                     }
+
+                    // ChannelsCleanUp();
                 } 
                 else
                 {
@@ -197,7 +199,7 @@ namespace Sufficit.Telephony.EventsPanel
             _logger.LogTrace("event: {type}, from: {sender}", @event.GetType(), sender);
             try
             {
-                HashSet<string> cardKeys = new HashSet<string>();
+                var cardKeys = new HashSet<string>();
                 if (@event is IChannelEvent eventChannel)
                 {
                     bool proccess = true;
@@ -222,7 +224,6 @@ namespace Sufficit.Telephony.EventsPanel
                     cardKeys.Add(HandleEvent(this, eventQueue));
 
                 //_logger.LogDebug($"event: {@event.GetType()}, cardKeys: {string.Join('|', cardKeys)}");
-
 
                 // handling auto discover cards
                 if (Options != null && Options.AutoFill)
@@ -254,6 +255,16 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
+        public void ChannelsCleanUp()
+        {
+            foreach(var item in Channels.ToList())
+            {
+                if (item.LastUpdate.AddMinutes(20) < DateTime.UtcNow)
+                {
+                    Channels.Remove(item);
+                }
+            }
+        }
 
         private void ClientChanged(HubConnectionState? state, Exception? ex)
             => OnChanged?.Invoke(state, ex);

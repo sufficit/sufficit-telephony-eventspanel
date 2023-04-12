@@ -221,16 +221,6 @@ namespace Sufficit.Telephony.EventsPanel
             return _handlers.Handler(key, action);
         }
 
-
-
-
-
-
-
-
-
-
-
         public AMIHubClientOptions? Options => _options;
 
         public HubConnectionState? State => _hub?.State;

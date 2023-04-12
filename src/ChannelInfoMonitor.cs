@@ -25,8 +25,16 @@ namespace Sufficit.Telephony.EventsPanel
 
                 // if this event is newer, check state and extra info
                 if (channelEvent is IChannelInfoEvent channelInfoEvent)
+                {
                     if (HandleChannelInfo(this.Content, channelInfoEvent))
                         Updated = true;
+
+                    if (channelInfoEvent is QueueCallerAbandonEvent)
+                    {
+                        this.Content.Abandoned = true;
+                        Updated = true;
+                    }
+                }
 
                 if (channelEvent is HangupEvent hangupEvent)
                 {
@@ -46,7 +54,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         #endregion
 
-        public static bool HandleChannelInfo(ChannelInfo content, IChannelInfoEvent @event)
+        static bool HandleChannelInfo(ChannelInfo content, IChannelInfoEvent @event)
         {
             bool updated = false;
 

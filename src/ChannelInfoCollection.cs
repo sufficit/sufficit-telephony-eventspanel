@@ -14,17 +14,18 @@ namespace Sufficit.Telephony.EventsPanel
         {
             base.Add(monitor);
 
+            // checking if already hangup
             var content = monitor.GetContent();
-            if (content.Hangup != null)                
-                ItemChanged(monitor, null);   
+            if (content.Hangup != null || content.Abandoned)                
+                ItemChanged(monitor, null);            
         }
 
-        public override async void ItemChanged(IMonitor? sender, object? state)
+        protected override async void ItemChanged(IMonitor sender, object? state)
         {
-            if (sender != null && sender is ChannelInfoMonitor monitor)
+            if (sender is ChannelInfoMonitor monitor)
             {
                 var content = monitor.GetContent();
-                if (content.Hangup != null)
+                if (content.Hangup != null || content.Abandoned)
                 {
                     await Task.Delay(5000);                    
                     Remove(monitor);                    

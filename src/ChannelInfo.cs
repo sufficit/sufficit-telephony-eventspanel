@@ -48,5 +48,10 @@ namespace Sufficit.Telephony.EventsPanel
         /// Queue that originate that channel
         /// </summary>
         public string? Queue { get; set; }
+
+        /// <summary>
+        /// Queue abandoned
+        /// </summary>
+        public bool Abandoned { get; set; }
     }
 }

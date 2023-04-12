@@ -8,6 +8,9 @@ namespace Sufficit.Telephony.EventsPanel
 {
     public interface IMonitor : IKey
     {       
-        event Action<IMonitor?, object?>? OnChanged;
+        /// <summary>
+        /// On item changed
+        /// </summary>
+        event Action<IMonitor, object?>? OnChanged;
     }
 }
