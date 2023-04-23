@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -13,8 +14,23 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class AMIHubClient : BackgroundService, IDisposable
+    public class AMIHubClient : BackgroundService, IDisposable, IHealthCheck
     {
+        #region IMPLEMENT HEALTH CHECK
+
+        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken)
+        {
+            if (ExecuteTask == null)
+                return Task.FromResult(HealthCheckResult.Unhealthy("not started or disposed"));
+
+            if (ExecuteTask.Status != TaskStatus.WaitingForActivation && ExecuteTask.Status != TaskStatus.Running)
+                return Task.FromResult(HealthCheckResult.Unhealthy($"status not running: {ExecuteTask.Status}"));
+
+            return Task.FromResult(HealthCheckResult.Healthy("A healthy result."));
+        }
+
+        #endregion
+
         /// <summary>
         /// Method name for system messages
         /// </summary>
@@ -44,6 +60,9 @@ namespace Sufficit.Telephony.EventsPanel
                         {
                             await _hub.StartAsync(_cts.Token);
                             _logger.LogInformation("hub state is: {state}", _hub.State);
+
+                            // awaiting infinite until cancellation triggered
+                            await Task.Delay(Timeout.Infinite, _cts.Token);
                         }
                         catch (Exception ex)
                         {
@@ -54,6 +73,7 @@ namespace Sufficit.Telephony.EventsPanel
                 } 
                 else
                 {
+                    _logger.LogWarning("invalid options");
                     _cts.Cancel();
                 }               
             } while (await Delay(_cts.Token));
@@ -74,10 +94,9 @@ namespace Sufficit.Telephony.EventsPanel
 
         protected bool EnsureValidHub()
         {
-            if(_hub != null)
-            {
+            if(_hub != null)            
                 return true;
-            }
+            
             return false;
         }
 
@@ -238,7 +257,7 @@ namespace Sufficit.Telephony.EventsPanel
         public async Task GetQueueStatus(string queue, string member, CancellationToken cancellationToken = default)
         {
             if (_hub?.State == HubConnectionState.Connected)
-                await _hub.InvokeAsync("GetQueueStatus", queue, member);
+                await _hub.InvokeAsync("GetQueueStatus", queue, member, cancellationToken);
         }
 
         public override void Dispose()

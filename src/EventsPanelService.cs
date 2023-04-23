@@ -1,24 +1,33 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk;
 using Sufficit.Asterisk.Manager.Events;
 using System;
-using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Text.Json;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public partial class EventsPanelService : BackgroundService, IEventsPanelService
+    public partial class EventsPanelService : BackgroundService, IEventsPanelService, IHealthCheck
     {
+        #region IMPLEMENT HEALTH CHECK
+
+        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken)
+        {
+            if (ExecuteTask == null)
+                return Task.FromResult(HealthCheckResult.Unhealthy("not started or disposed"));
+
+            if (ExecuteTask.Status != TaskStatus.WaitingForActivation && ExecuteTask.Status != TaskStatus.Running)
+                return Task.FromResult(HealthCheckResult.Unhealthy($"status not running: {ExecuteTask.Status}"));
+
+            return Task.FromResult(HealthCheckResult.Healthy("A healthy result."));
+        }
+
+        #endregion
+    
         #region IMPLEMENT INTERFACE EVENTSPANEL SERVICE
 
         public bool IsConfigured => _client != null;
@@ -42,6 +51,9 @@ namespace Sufficit.Telephony.EventsPanel
                         {
                             await _client.StartAsync(_cts.Token);
                             _logger.LogInformation("client state is: {state}", _client.State);
+
+                            // awaiting infinite until cancellation triggered
+                            await Task.Delay(Timeout.Infinite, _cts.Token);
                         }
                         catch (Exception ex)
                         {
@@ -49,8 +61,6 @@ namespace Sufficit.Telephony.EventsPanel
                             _ = await Delay(_cts.Token);
                         }
                     }
-
-                    // ChannelsCleanUp();
                 } 
                 else
                 {
