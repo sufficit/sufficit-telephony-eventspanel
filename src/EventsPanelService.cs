@@ -55,6 +55,11 @@ namespace Sufficit.Telephony.EventsPanel
                             // awaiting infinite until cancellation triggered
                             await Task.Delay(Timeout.Infinite, _cts.Token);
                         }
+                        catch (OperationCanceledException)
+                        {
+                            _logger.LogInformation("executing operation canceled");
+                            // its stops _client 
+                        }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "error on starting client, trying again in {time} milliseconds", DELAYMILLISECONDS);
@@ -94,18 +99,18 @@ namespace Sufficit.Telephony.EventsPanel
 
         private AMIHubClient? _client;
 
-
         public ChannelInfoCollection Channels { get; }
+
         public PeerInfoCollection Peers { get; }
+
         public QueueInfoCollection Queues { get; }
+
         public ICollection<Exception> Exceptions { get; }
 
         public Uri? EndPoint =>
             _client?.Options?.Endpoint;
 
-        /// <summary>
-        /// On Status Changed or Exception occurs
-        /// </summary>
+        /// <inheritdoc cref="AMIHubClient.OnChanged"/>
         public event Action<HubConnectionState?, Exception?>? OnChanged;
 
         /// <summary>
@@ -172,7 +177,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         public async void Configure(AMIHubClient client)
         {
-            if(client != null && !client.Equals(_client))
+            if (client != null && !client.Equals(_client))
             {
                 if(_client != null)                
                     await _client.DisposeAsync();
@@ -256,7 +261,6 @@ namespace Sufficit.Telephony.EventsPanel
                     this.Event(card, newEvent);                    
                 */
 
-
                 OnEvent?.Invoke(cardKeys, @event);
             }
             catch (Exception ex)
@@ -280,8 +284,7 @@ namespace Sufficit.Telephony.EventsPanel
             => OnChanged?.Invoke(state, ex);
 
         public EventsPanelServiceOptions? Options { get; internal set; }
-                
-        
+                        
         #region EVENT HANDLERS
 
         protected bool LimitReached => Options?.MaxButtons > 0 && _cards.Count >= Options.MaxButtons;
@@ -328,12 +331,11 @@ namespace Sufficit.Telephony.EventsPanel
         #endregion        
 
         /// <summary>
-        /// Return base cards generated;
+        ///     Return base cards generated;
         /// </summary>
-        /// <returns></returns>
         public IEnumerable<EventsPanelCard> GetCards() => _cards;
 
-        public bool Append(EventsPanelCard card)
+        public bool Append (EventsPanelCard card)
         {
             if (!_cards.Contains(card))
             {
@@ -346,7 +348,6 @@ namespace Sufficit.Telephony.EventsPanel
         public bool IsConnected => _client?.State == HubConnectionState.Connected;
 
         public bool IsTrying => _client?.State == HubConnectionState.Connecting || _client?.State == HubConnectionState.Reconnecting;
-
 
         public HubConnectionState? State => _client?.State;
 
@@ -369,7 +370,7 @@ namespace Sufficit.Telephony.EventsPanel
         public Func<EventsPanelCard, Task<string>>? CardAvatarHandler { get; set; }
 
         /// <summary>
-        /// IMonitor Key, only representative, not used.
+        ///     IMonitor Key, only representative, not used.
         /// </summary>
         public string Key => nameof(EventsPanelService);
     }

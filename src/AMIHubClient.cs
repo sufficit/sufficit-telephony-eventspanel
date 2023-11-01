@@ -3,14 +3,10 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Sufficit.Asterisk.Manager;
 using Sufficit.Asterisk.Manager.Events;
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -49,7 +45,10 @@ namespace Sufficit.Telephony.EventsPanel
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            // cancelling previous token, if exists
+            if (_cts != null) _cts.Cancel();
             _cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+            
             do
             {
                 if (EnsureValidHub())
@@ -61,8 +60,16 @@ namespace Sufficit.Telephony.EventsPanel
                             await _hub.StartAsync(_cts.Token);
                             _logger.LogInformation("hub state is: {state}", _hub.State);
 
+                            // invoking first changed events
+                            OnChanged?.Invoke(_hub.State, null);
+
                             // awaiting infinite until cancellation triggered
                             await Task.Delay(Timeout.Infinite, _cts.Token);
+                        }
+                        catch (OperationCanceledException)
+                        {
+                            _logger.LogInformation("executing operation canceled");
+                            await _hub.StopAsync(CancellationToken.None);
                         }
                         catch (Exception ex)
                         {
@@ -101,7 +108,7 @@ namespace Sufficit.Telephony.EventsPanel
         }
 
         /// <summary>
-        /// Configure Hub Connection everytime that options changed
+        ///     Configure Hub Connection everytime that options changed
         /// </summary>
         protected async void Configure(AMIHubClientOptions options)
         {
@@ -133,7 +140,15 @@ namespace Sufficit.Telephony.EventsPanel
                         opts.HttpMessageHandlerFactory = (message) =>
                         {
                             if (message is HttpClientHandler clientHandler)
-                                clientHandler.ServerCertificateCustomValidationCallback += (sender, certificate, chain, sslPolicyErrors) => { return true; };
+                            {
+                                // if not using any browser platform
+                                var platform = OSPlatform.Create("browser");
+                                if (!RuntimeInformation.IsOSPlatform(platform))
+                                {
+                                    // do not check for certificates
+                                    clientHandler.ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) => { return true; };
+                                }
+                            }
                             return message;
                         };
                     })
@@ -159,7 +174,7 @@ namespace Sufficit.Telephony.EventsPanel
         }
                         
         /// <summary>
-        /// Default Singleton service provider constructor
+        ///     Default Singleton service provider constructor
         /// </summary>
         public AMIHubClient(IOptionsMonitor<AMIHubClientOptions> monitor, ILogger<AMIHubClient> logger)
         {
@@ -173,10 +188,8 @@ namespace Sufficit.Telephony.EventsPanel
         }
 
         /// <summary>
-        /// New handler append to the internal collection
+        ///     New handler append to the internal collection
         /// </summary>
-        /// <param name="sender"></param>
-        /// <param name="handler"></param>
         private void HandlerRegistered(object? sender, ManagerEventHandler handler)
         {
             if (_hub == null) return;
@@ -186,9 +199,8 @@ namespace Sufficit.Telephony.EventsPanel
         }
 
         /// <summary>
-        /// Ensure that the hub has all internal handlers registered
+        ///     Ensure that the hub has all internal handlers registered
         /// </summary>
-        /// <param name="hub"></param>
         protected void RegisterHandlers(HubConnection hub)
         {
             _logger.LogDebug($"loading internal handlers collection");
@@ -204,7 +216,6 @@ namespace Sufficit.Telephony.EventsPanel
 
             OnChanged?.Invoke(State, null);
         }
-
 
         #region HUB STATE EVENTS
 
@@ -244,6 +255,9 @@ namespace Sufficit.Telephony.EventsPanel
 
         public HubConnectionState? State => _hub?.State;
 
+        /// <summary>
+        ///     On Status Changed or Exception occurs
+        /// </summary>
         public event Action<HubConnectionState?, Exception?>? OnChanged;
 
         public delegate void AsyncEventHandler(AMIHubClient sender);
