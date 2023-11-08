@@ -15,40 +15,40 @@ namespace Sufficit.Telephony.EventsPanel
 
         public override void Event(object @event)
         {
-            if (@event is IChannelEvent channelEvent)
+            DateTime evtts = DateTime.UtcNow;
+            if (@event is IManagerEvent managerEvent)
             {
-                bool Updated = false;
+                evtts = managerEvent.GetTimeStamp();
+                UpdateReceived(this, evtts);
+            }
 
-                if (channelEvent is IManagerEvent managerEvent)
-                    if(UpdateReceived(this, managerEvent.GetTimeStamp()))
-                        Updated = true;
-
-                // if this event is newer, check state and extra info
-                if (channelEvent is IChannelInfoEvent channelInfoEvent)
+            if (evtts > Timestamp)
+            {
+                Timestamp = evtts;
+                if (@event is IChannelEvent channelEvent)
                 {
-                    if (HandleChannelInfo(this.Content, channelInfoEvent))
-                        Updated = true;
-
-                    if (channelInfoEvent is QueueCallerAbandonEvent)
+                    // if this event is newer, check state and extra info
+                    if (channelEvent is IChannelInfoEvent channelInfoEvent)
                     {
-                        this.Content.Abandoned = true;
-                        Updated = true;
+                        HandleChannelInfo(Content, channelInfoEvent);
+
+                        if (channelInfoEvent is QueueCallerAbandonEvent)
+                        {
+                            Content.Abandoned = true;
+                        }
+                    }
+
+                    if (channelEvent is HangupEvent hangupEvent)
+                    {
+                        HandleHangup(Content, hangupEvent);
+                    }
+                    else if (channelEvent is NewChannelEvent newChannelEvent)
+                    {
+                        HandleNewChannel(Content, newChannelEvent);
                     }
                 }
 
-                if (channelEvent is HangupEvent hangupEvent)
-                {
-                    if (HandleHangup(this.Content, hangupEvent))
-                        Updated = true;
-                } 
-                else if(channelEvent is NewChannelEvent newChannelEvent)
-                {
-                    if (HandleNewChannel(this.Content, newChannelEvent))
-                        Updated = true;
-                }
-
-                if (Updated)                    
-                    base.Event(@event);
+                base.Event(@event);
             }
         }
 
@@ -92,18 +92,15 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public bool IsInitiator => Content.LinkedId == Content.UniqueId;
 
-        protected static bool UpdateReceived(ChannelInfo content, DateTime dateTime)
+        protected static void UpdateReceived(ChannelInfo content, DateTime dateTime)
         {
             if (dateTime > DateTime.MinValue)
             {
                 if (content.Start == DateTime.MinValue || dateTime < content.Start)
                 {
                     content.Start = dateTime;
-                    return true;
                 }
             }
-
-            return false;
         }
 
         public static bool HandleHangup(ChannelInfo content, HangupEvent @event)

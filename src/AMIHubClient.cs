@@ -1,12 +1,15 @@
 ﻿using Microsoft.AspNetCore.SignalR.Client;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager.Events;
 using System;
+using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -133,28 +136,35 @@ namespace Sufficit.Telephony.EventsPanel
             // updating last valid options
             _options = options;
 
-            _logger.LogDebug("({instance}) parsing options and creating hub with endpoint: {endpoint}", _instance, _options.Endpoint);
+            _logger.LogTrace("({instance}) parsing options and creating hub with endpoint: {endpoint}", _instance, _options.Endpoint);
             _hub = new HubConnectionBuilder()
-                    .WithUrl(_options.Endpoint!, (opts) =>
+                .AddJsonProtocol(opts =>
+                {
+                    opts.PayloadSerializerOptions = Sufficit.Json.Options;
+                })
+                .WithUrl(_options.Endpoint!, (opts) =>
+                {
+                    opts.HttpMessageHandlerFactory = (message) =>
                     {
-                        opts.HttpMessageHandlerFactory = (message) =>
+                        if (message is HttpClientHandler clientHandler)
                         {
-                            if (message is HttpClientHandler clientHandler)
+                            // if not using any browser platform
+                            var platform = OSPlatform.Create("browser");
+                            if (!RuntimeInformation.IsOSPlatform(platform))
                             {
-                                // if not using any browser platform
-                                var platform = OSPlatform.Create("browser");
-                                if (!RuntimeInformation.IsOSPlatform(platform))
-                                {
-                                    // do not check for certificates
-                                    clientHandler.ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) => { return true; };
-                                }
+                                // do not check for certificates
+                                clientHandler.ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) => { return true; };
                             }
-                            return message;
-                        };
-                    })
-                    .WithAutomaticReconnect()
-                    .Build();
-
+                        }
+                        return message;
+                    };
+                })
+                .WithAutomaticReconnect()
+                .Build();
+             
+            //_hub.On("PeerStatusEvent", Log);
+            //_ = _hub.On<string, JsonElement>("PeerStatusEvent", (server, message) => Console.WriteLine("event received: {0}, {1}", server, message));
+            
             HandlersUpdate(_hub);
             RegisterHandlers(_hub);           
         }
@@ -192,9 +202,9 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         private void HandlerRegistered(object? sender, ManagerEventHandler handler)
         {
-            if (_hub == null) return;
+            if (_hub == null) throw new Exception("null hub");
 
-            _logger.LogDebug($"registering by event key: {handler.Key}");
+            _logger.LogTrace("registering by event key: {0}, types: {0}", handler.Key, handler.Types);
             handler.Disposable = _hub.On(handler.Key, handler.Types, handler.Action!, handler.State);
         }
 
@@ -239,13 +249,13 @@ namespace Sufficit.Telephony.EventsPanel
 
         #endregion
 
-        public IDisposable? Register<T>(Func<string, T, Task> action) where T : IManagerEvent
+        public IDisposable Register<T>(Func<string, T, Task> action) where T : IManagerEvent
         {
             var key = typeof(T).Name;
             return _handlers.Handler(key, action);
         }
 
-        public IDisposable? Register<T>(Action<string, T> action) where T : IManagerEvent
+        public IDisposable Register<T>(Action<string, T> action) where T : IManagerEvent
         {
             var key = typeof(T).Name;
             return _handlers.Handler(key, action);

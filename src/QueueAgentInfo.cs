@@ -48,14 +48,14 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public DateTime Updated { get; set; }
 
-        public void Event(IQueueMemberEvent @event)
+        public void Event(IManagerEvent @event)
         {
             bool ShouldUpdate = false;
             var timestamp = @event.GetTimeStamp();
             if (timestamp > Updated)
             {
                 Updated = timestamp;
-                if (@event is IQueueMemberStatusEvent statusEvent)
+                if (@event is IQueueMemberEvent statusEvent)
                     Handle(this, statusEvent);
             }
 
@@ -63,7 +63,7 @@ namespace Sufficit.Telephony.EventsPanel
                 OnChanged.Invoke(this, null);
         }
 
-        public static void Handle(QueueAgentInfo source, IQueueMemberStatusEvent eventObj)
+        public static void Handle(QueueAgentInfo source, IQueueMemberEvent eventObj)
         {
             source.Name = eventObj.MemberName;
             source.Membership = eventObj.Membership;

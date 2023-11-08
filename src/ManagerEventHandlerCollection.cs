@@ -4,8 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static System.Collections.Specialized.BitVector32;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -33,14 +31,13 @@ namespace Sufficit.Telephony.EventsPanel
             return handler;
         }
 
-
         public ManagerEventHandler Handler<T>(string key, Func<string, T, Task> state)
         {
             var handler = this.FirstOrDefault(s => s.IsMatch(key, state));
             if (handler == null)
             {
                 handler = new ManagerEventHandler(this, key).Parse(state);
-                if(_items.Add(handler))                
+                if (_items.Add(handler))                
                     Registered?.Invoke(this, handler);                
             }
             return handler;

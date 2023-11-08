@@ -37,7 +37,7 @@ namespace Sufficit.Telephony.EventsPanel
         /// Monitor changes in the collection, numeric changes, add, remove, etc <br />
         /// Not internal items changes
         /// </summary>
-        public  event Action<T?, object?>? OnChanged
+        public event Action<T?, object?>? OnChanged
         {
             add { if(!IsEventHandlerRegistered(value)) _onChanged += value; }
             remove { _onChanged -= value; }

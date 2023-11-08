@@ -1,4 +1,5 @@
 ﻿using Sufficit.Asterisk.Manager.Events;
+using Sufficit.Asterisk.Manager.Events.Abstracts;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,15 +15,26 @@ namespace Sufficit.Telephony.EventsPanel
 
         public override void Event(object @event)
         {
-            if (@event is IPeerStatus newEvent)
+            DateTime evtts = DateTime.UtcNow;
+            if (@event is IManagerEvent managerEvent)
+                evtts = managerEvent.GetTimeStamp();
+
+            if (evtts > Timestamp)
             {
-                // Console.WriteLine($"IPeerStatus({ @event.GetType() }): { newEvent.Peer } :: { newEvent.PeerStatus }");
-                var currentState = newEvent.PeerStatus;
-                if (Content.Status != currentState)
+                Timestamp = evtts;
+                if (@event is IPeerStatus statusEvent)
                 {
-                    Content.Status = currentState;
-                    base.Event(@event);
+                    Content.Status = statusEvent.PeerStatus;
+
+                    if (statusEvent is PeerStatusEvent peerStatusEvent)
+                    {
+                        Content.Time = peerStatusEvent.Time;
+                        Content.Address = peerStatusEvent.Address;
+                        Content.Cause = peerStatusEvent.Cause;
+                    }
                 }
+
+                base.Event(@event);
             }
         }
 

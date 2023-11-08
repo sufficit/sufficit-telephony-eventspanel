@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Sufficit.Asterisk.Manager.Events;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -23,24 +24,22 @@ namespace Sufficit.Telephony.EventsPanel
         /// <summary>
         /// Last event received at
         /// </summary>
-        public DateTime LastUpdate { get; set; }
+        public DateTime Timestamp { get; protected set; }
 
         public EventsPanelMonitor(IKey content)
         {
             Content = content;
         }
 
+        /// <summary>
+        ///     State has changed
+        /// </summary>
         public virtual void Event(object @event)
-        {
-            LastUpdate = DateTime.UtcNow;
-            OnChanged?.Invoke(this, @event);
-        }
+            => OnChanged?.Invoke(this, @event);        
 
         /// <summary>
-        /// Should match to peer or queue to show in card
+        ///     Should match to peer or queue to show in card
         /// </summary>
-        /// <param name="match"></param>
-        /// <returns></returns>
         public virtual bool IsMatch(string match)
         {
             var peerNormalized = Key.Trim().ToLowerInvariant();

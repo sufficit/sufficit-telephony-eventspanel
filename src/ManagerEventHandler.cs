@@ -1,5 +1,4 @@
-﻿using Sufficit.Asterisk.Manager.Events;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -21,7 +20,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         public object State { get; internal set; } = default!;
 
-        public ManagerEventHandler(ManagerEventHandlerCollection collection, string key) 
+        public ManagerEventHandler (ManagerEventHandlerCollection collection, string key) 
         {
             _collection = collection;
             Key = key;
@@ -33,8 +32,10 @@ namespace Sufficit.Telephony.EventsPanel
             State = action;
             Action = static (parameters, state) =>
             {
-                var currentHandler = (Action<string, T>)state;
-                currentHandler((string)parameters[0], (T)parameters[1]);
+                if (state is Action<string, T> currentHandler)
+                    currentHandler((string)parameters[0], (T)parameters[1]);
+                else
+                    throw new Exception($"invalid state: {state}");
                 return Task.CompletedTask;
             };
             return this;
@@ -46,8 +47,10 @@ namespace Sufficit.Telephony.EventsPanel
             State = action;
             Action = static (parameters, state) =>
             {
-                var currentHandler = (Func<string, T, Task>)state;
-                return currentHandler((string)parameters[0], (T)parameters[1]);
+                if (state is Func<string, T, Task> currentHandler)                
+                    return currentHandler((string)parameters[0], (T)parameters[1]);
+                else
+                    throw new Exception($"invalid state: {state}");
             };
             return this;
         }

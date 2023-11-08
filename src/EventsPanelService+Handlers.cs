@@ -1,4 +1,5 @@
 ﻿using Sufficit.Asterisk.Manager.Events;
+using Sufficit.Asterisk.Manager.Events.Abstracts;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -80,9 +81,6 @@ namespace Sufficit.Telephony.EventsPanel
         /// <summary>
         /// Handle Channel events and create a monitor if not exists
         /// </summary>
-        /// <param name="source"></param>
-        /// <param name="event"></param>
-        /// <returns></returns>
         public static string HandleEvent(EventsPanelService source, IChannelEvent @event)
         {
             string? queue = null;
@@ -102,13 +100,21 @@ namespace Sufficit.Telephony.EventsPanel
         /// <summary>
         /// Handle Peer events and create a monitor if not exists
         /// </summary>
-        /// <param name="source"></param>
-        /// <param name="event"></param>
-        /// <returns></returns>
+        public static string HandleEvent(EventsPanelService source, SecurityEvent @event)
+        {
+            var key = $"{@event.Service}/{@event.AccountId}";
+            var monitor = Monitor(source.Peers, key);
+            monitor.Event(@event);
+            return key;
+        }
+
+        /// <summary>
+        /// Handle Peer events and create a monitor if not exists
+        /// </summary>
         public static string HandleEvent(EventsPanelService source, IPeerStatus @event)
         {
             var key = @event.Peer;
-            var monitor = Monitor(source.Peers, @event.Peer);
+            var monitor = Monitor(source.Peers, key);
             monitor.Event(@event);
             return key;
         }

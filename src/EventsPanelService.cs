@@ -6,8 +6,11 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk;
 using Sufficit.Asterisk.Manager.Events;
+using Sufficit.Asterisk.Manager.Events.Abstracts;
+using Sufficit.Notification;
 using System;
 using System.Collections.Specialized;
+using System.Threading;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -92,6 +95,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         #endregion
 
+        private readonly HashSet<IDisposable> _subscriptions;
         private readonly IDisposable? _optionsMonitor;
         private readonly ILogger _logger;
         private readonly IEventsPanelCardCollection _cards;
@@ -130,6 +134,7 @@ namespace Sufficit.Telephony.EventsPanel
             Peers = new PeerInfoCollection();
             Queues = new QueueInfoCollection();
 
+            _subscriptions = new HashSet<IDisposable>();
             _provider = provider;
 
             var cardsImplementation = _provider.GetService<IEventsPanelCardCollection>();
@@ -175,38 +180,84 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
+        protected void Subscribe<T>(Action<string, T> action) where T : IManagerEvent
+        {
+            if (_client == null) throw new Exception("null client");
+
+            var handler = _client.Register<T>(action);
+            _subscriptions.Add(handler);
+        }
+
+        protected void Subscribe<T>(Func<string, T, Task> action) where T : IManagerEvent
+        {
+            if (_client == null) throw new Exception("null client");
+
+            var handler = _client.Register<T>(action);
+            _subscriptions.Add(handler);
+        }
+
         public async void Configure(AMIHubClient client)
         {
             if (client != null && !client.Equals(_client))
             {
-                if(_client != null)                
+                if (_client != null)
+                {
                     await _client.DisposeAsync();
+                    foreach (var subs in _subscriptions) 
+                        subs?.Dispose();
+
+                    _subscriptions.Clear();
+                }
 
                 _client = client;
                 _client.OnChanged += ClientChanged;
 
-                _client.Register<PeerStatusEvent>(IManagerEventHandler);
-                _client.Register<NewChannelEvent>(IManagerEventHandler);
-                _client.Register<NewStateEvent>(IManagerEventHandler);
-                _client.Register<HangupEvent>(IManagerEventHandler);
-                _client.Register<StatusEvent>(IManagerEventHandler);
-                _client.Register<PeerEntryEvent>(IManagerEventHandler);
+                Subscribe<SuccessfulAuthEvent>(IManagerEventHandler);
+                Subscribe<ChallengeSentEvent>(IManagerEventHandler);
+                Subscribe<InvalidPasswordEvent>(IManagerEventHandler);
+                Subscribe<ChallengeResponseFailedEvent>(IManagerEventHandler);
+
+                Subscribe<PeerStatusEvent>(PeerStatusEventHandler);
+                Subscribe<PeerStatusEvent>(IManagerEventHandler);
+
+                Subscribe<NewChannelEvent>(IManagerEventHandler);
+                Subscribe<NewStateEvent>(IManagerEventHandler);
+                Subscribe<HangupEvent>(IManagerEventHandler);
+                Subscribe<StatusEvent>(IManagerEventHandler);
+                Subscribe<PeerEntryEvent>(IManagerEventHandler);
 
                 // events queue and channels
-                _client.Register<QueueCallerJoinEvent>(IManagerEventHandler);
-                _client.Register<QueueCallerAbandonEvent>(IManagerEventHandler);
-                _client.Register<QueueCallerLeaveEvent>(IManagerEventHandler);
+                Subscribe<QueueCallerJoinEvent>(IManagerEventHandler);
+                Subscribe<QueueCallerAbandonEvent>(IManagerEventHandler);
+                Subscribe<QueueCallerLeaveEvent>(IManagerEventHandler);
 
-                _client.Register<QueueMemberAddedEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberPauseEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberPenaltyEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberRemovedEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberRinginuseEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberStatusEvent>(IManagerEventHandler);
+                Subscribe<QueueMemberAddedEvent>(IManagerEventHandler);
+                Subscribe<QueueMemberPauseEvent>(IManagerEventHandler);
+                Subscribe<QueueMemberPenaltyEvent>(IManagerEventHandler);
+                Subscribe<QueueMemberRemovedEvent>(IManagerEventHandler);
+                Subscribe<QueueMemberRinginuseEvent>(IManagerEventHandler);
+                Subscribe<QueueMemberStatusEvent>(IManagerEventHandler);
 
-                _client.Register<QueueParamsEvent>(IManagerEventHandler);
-                _client.Register<QueueMemberEvent>(IManagerEventHandler);
+                Subscribe<QueueParamsEvent>(IManagerEventHandler);
             }
+        }
+
+        private SemaphoreSlim _semaphore = new SemaphoreSlim(1);
+        protected async Task PeerStatusEventHandler(string sender, PeerStatusEvent @event)
+        {
+            await _semaphore.WaitAsync();
+
+            var peer = Peers[@event.Peer];
+            if (peer == null)
+            {
+                peer = new PeerInfoMonitor(@event.Peer);
+                Peers.Add(peer);
+            }
+
+            _semaphore.Release();
+
+            // processing event
+            peer.Event(@event);
         }
 
         public void IManagerEventHandler(string sender, IManagerEventFromAsterisk @event)
@@ -231,8 +282,10 @@ namespace Sufficit.Telephony.EventsPanel
                         cardKeys.Add(key);
                     }
                 }
-
-                if (@event is IPeerStatus peerStatusEvent)                                        
+                
+                if (@event is SecurityEvent securityEvent)
+                    cardKeys.Add(HandleEvent(this, securityEvent));
+                else if (@event is IPeerStatus peerStatusEvent)                                        
                     cardKeys.Add(HandleEvent(this, peerStatusEvent));                
 
                 if (@event is IQueueEvent eventQueue)                
@@ -273,7 +326,7 @@ namespace Sufficit.Telephony.EventsPanel
         {
             foreach(var item in Channels.ToList())
             {
-                if (item.LastUpdate.AddMinutes(20) < DateTime.UtcNow)
+                if (item.Timestamp.AddMinutes(20) < DateTime.UtcNow)
                 {
                     Channels.Remove(item);
                 }
