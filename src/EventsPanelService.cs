@@ -7,10 +7,8 @@ using Microsoft.Extensions.Options;
 using Sufficit.Asterisk;
 using Sufficit.Asterisk.Manager.Events;
 using Sufficit.Asterisk.Manager.Events.Abstracts;
-using Sufficit.Notification;
-using System;
+using Sufficit.Identity;
 using System.Collections.Specialized;
-using System.Threading;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -58,15 +56,19 @@ namespace Sufficit.Telephony.EventsPanel
                             // awaiting infinite until cancellation triggered
                             await Task.Delay(Timeout.Infinite, _cts.Token);
                         }
-                        catch (OperationCanceledException)
+                        catch (OperationCanceledException ex)
                         {
                             _logger.LogInformation("executing operation canceled");
-                            // its stops _client 
+
+                            // invoking changed handlers
+                            ClientChanged(_client.State, ex);
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "error on starting client, trying again in {time} milliseconds", DELAYMILLISECONDS);
-                            _ = await Delay(_cts.Token);
+
+                            // invoking changed handlers
+                            ClientChanged(_client.State, ex);
                         }
                     }
                 } 
@@ -150,7 +152,12 @@ namespace Sufficit.Telephony.EventsPanel
                        
             var client = _provider.GetService<AMIHubClient>();
             if (client != null)
-                Configure(client);             
+            {
+                var accesstokenprovider = _provider.CreateScope().ServiceProvider.GetService<ITokenProvider>();
+                if (accesstokenprovider != null)
+                    client.AccessTokenProvider = accesstokenprovider.GetTokenAsync();
+                Configure(client);
+            }             
 
             Panel = new Panel(_cards, this);
 
@@ -196,6 +203,8 @@ namespace Sufficit.Telephony.EventsPanel
             _subscriptions.Add(handler);
         }
 
+        public Task<string?>? AccessTokenProvider { get => _client?.AccessTokenProvider; set { if (_client != null) _client.AccessTokenProvider = value; } }
+
         public async void Configure(AMIHubClient client)
         {
             if (client != null && !client.Equals(_client))
@@ -218,7 +227,6 @@ namespace Sufficit.Telephony.EventsPanel
                 Subscribe<ChallengeResponseFailedEvent>(IManagerEventHandler);
 
                 Subscribe<PeerStatusEvent>(PeerStatusEventHandler);
-                Subscribe<PeerStatusEvent>(IManagerEventHandler);
 
                 Subscribe<NewChannelEvent>(IManagerEventHandler);
                 Subscribe<NewStateEvent>(IManagerEventHandler);
@@ -242,22 +250,22 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        private SemaphoreSlim _semaphore = new SemaphoreSlim(1);
-        protected async Task PeerStatusEventHandler(string sender, PeerStatusEvent @event)
+        protected void PeerStatusEventHandler(string sender, PeerStatusEvent @event)
         {
-            await _semaphore.WaitAsync();
-
-            var peer = Peers[@event.Peer];
-            if (peer == null)
+            PeerInfoMonitor? monitor;
+            lock (Peers.KeysLock)
             {
-                peer = new PeerInfoMonitor(@event.Peer);
-                Peers.Add(peer);
+                monitor = Peers[@event.Peer];
+                if (monitor == null)
+                {
+                    monitor = new PeerInfoMonitor(@event.Peer);
+                    monitor.Permanent = false;
+                    Peers.Add(monitor);
+                }
             }
 
-            _semaphore.Release();
-
             // processing event
-            peer.Event(@event);
+            monitor.Event(@event);
         }
 
         public void IManagerEventHandler(string sender, IManagerEventFromAsterisk @event)
@@ -333,8 +341,16 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
+        /// <summary>
+        /// Last knowning exception
+        /// </summary>
+        public Exception? Exception { get; private set; }
+
         private void ClientChanged(HubConnectionState? state, Exception? ex)
-            => OnChanged?.Invoke(state, ex);
+        {
+            Exception = ex;
+            OnChanged?.Invoke(state, ex);
+        }
 
         public EventsPanelServiceOptions? Options { get; internal set; }
                         
@@ -400,7 +416,15 @@ namespace Sufficit.Telephony.EventsPanel
 
         public bool IsConnected => _client?.State == HubConnectionState.Connected;
 
-        public bool IsTrying => _client?.State == HubConnectionState.Connecting || _client?.State == HubConnectionState.Reconnecting;
+        /// <summary>
+        /// Is a pending status connection ?
+        /// </summary>
+        public bool IsTrying => _client?.IsTrying ?? false;
+
+        /// <summary>
+        /// Background task status
+        /// </summary>
+        public TaskStatus? Status => _client?.ExecuteTask?.Status ?? ExecuteTask?.Status;
 
         public HubConnectionState? State => _client?.State;
 

@@ -17,7 +17,8 @@ namespace Sufficit.Telephony.EventsPanel
         public string Key => Content.Key;
 
         /// <summary>
-        /// Monitor changes on underlaying item properties, queue, peer, trunk
+        /// Monitor changes on underlaying item properties, queue, peer, trunk <br />
+        /// object => event that causes the change
         /// </summary>
         public event Action<IMonitor, object?>? OnChanged;
 

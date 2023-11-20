@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
+﻿using Microsoft.AspNetCore.Http.Connections.Client;
+using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
@@ -6,10 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager.Events;
 using System;
-using System.Reflection.Metadata;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Text.Json;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -63,21 +61,23 @@ namespace Sufficit.Telephony.EventsPanel
                             await _hub.StartAsync(_cts.Token);
                             _logger.LogInformation("hub state is: {state}", _hub.State);
 
-                            // invoking first changed events
-                            OnChanged?.Invoke(_hub.State, null);
+                            StateHasChanged(_hub.State);
 
                             // awaiting infinite until cancellation triggered
                             await Task.Delay(Timeout.Infinite, _cts.Token);
                         }
-                        catch (OperationCanceledException)
+                        catch (OperationCanceledException ex)
                         {
                             _logger.LogInformation("executing operation canceled");
                             await _hub.StopAsync(CancellationToken.None);
+
+                            StateHasChanged(_hub.State, ex);
                         }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex, "error on connecting hub, trying again in {time} milliseconds", DELAYMILLISECONDS);
-                            _ = await Delay(_cts.Token);
+
+                            StateHasChanged(_hub.State, ex);
                         }
                     }
                 } 
@@ -87,7 +87,7 @@ namespace Sufficit.Telephony.EventsPanel
                     _cts.Cancel();
                 }               
             } while (await Delay(_cts.Token));
-        }
+        }        
 
         private async Task<bool> Delay(CancellationToken cancellationToken)
         {
@@ -102,6 +102,15 @@ namespace Sufficit.Telephony.EventsPanel
             catch (OperationCanceledException) { return false; }
         }
 
+        /// <summary>
+        /// invoking changed handlers
+        /// </summary>
+        private void StateHasChanged(HubConnectionState state, Exception? ex = null)
+        {
+            OnChanged?.Invoke(state, ex);
+        }
+
+
         protected bool EnsureValidHub()
         {
             if(_hub != null)            
@@ -109,6 +118,8 @@ namespace Sufficit.Telephony.EventsPanel
             
             return false;
         }
+
+        public Task<string?>? AccessTokenProvider { get; set; }
 
         /// <summary>
         ///     Configure Hub Connection everytime that options changed
@@ -142,23 +153,7 @@ namespace Sufficit.Telephony.EventsPanel
                 {
                     opts.PayloadSerializerOptions = Sufficit.Json.Options;
                 })
-                .WithUrl(_options.Endpoint!, (opts) =>
-                {
-                    opts.HttpMessageHandlerFactory = (message) =>
-                    {
-                        if (message is HttpClientHandler clientHandler)
-                        {
-                            // if not using any browser platform
-                            var platform = OSPlatform.Create("browser");
-                            if (!RuntimeInformation.IsOSPlatform(platform))
-                            {
-                                // do not check for certificates
-                                clientHandler.ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) => { return true; };
-                            }
-                        }
-                        return message;
-                    };
-                })
+                .WithUrl(_options.Endpoint!, HttpConnectionBuilder)
                 .WithAutomaticReconnect()
                 .Build();
              
@@ -166,7 +161,28 @@ namespace Sufficit.Telephony.EventsPanel
             //_ = _hub.On<string, JsonElement>("PeerStatusEvent", (server, message) => Console.WriteLine("event received: {0}, {1}", server, message));
             
             HandlersUpdate(_hub);
-            RegisterHandlers(_hub);           
+            RegisterHandlers(_hub);
+        }
+
+        protected void HttpConnectionBuilder(HttpConnectionOptions options)
+        {
+            _logger.LogWarning("configuring http connection options");
+            
+            options.AccessTokenProvider = async () => await AccessTokenProvider!;
+            options.HttpMessageHandlerFactory = (message) =>
+            {
+                if (message is HttpClientHandler clientHandler)
+                {
+                    // if not using any browser platform
+                    var platform = OSPlatform.Create("browser");
+                    if (!RuntimeInformation.IsOSPlatform(platform))
+                    {
+                        // do not check for certificates
+                        clientHandler.ServerCertificateCustomValidationCallback = (sender, certificate, chain, sslPolicyErrors) => { return true; };
+                    }
+                }
+                return message;
+            };
         }
 
         protected void HandlersUpdate(HubConnection hub)
@@ -224,26 +240,33 @@ namespace Sufficit.Telephony.EventsPanel
             if (message != null)
                 _logger.LogWarning($"({SYSTEM}) message: {{message}}", message);
 
-            OnChanged?.Invoke(State, null);
+            if (_hub != null)
+                StateHasChanged(_hub.State);
         }
 
         #region HUB STATE EVENTS
 
-        private Task _hub_Reconnecting(Exception? arg)
+        private Task _hub_Reconnecting(Exception? ex)
         {
-            OnChanged?.Invoke(State, arg);
+            if (_hub != null)
+                StateHasChanged(_hub.State, ex);
+
             return Task.CompletedTask;
         }
 
-        private Task _hub_Reconnected(string? arg)
+        private Task _hub_Reconnected(string? _)
         {
-            OnChanged?.Invoke(State, null);
+            if (_hub != null)
+                StateHasChanged(_hub.State);
+
             return Task.CompletedTask;
         }
 
-        private Task _hub_Closed(Exception? arg)
+        private Task _hub_Closed(Exception? ex)
         {
-            OnChanged?.Invoke(State, arg);
+            if (_hub != null)            
+                StateHasChanged(_hub.State, ex);
+            
             return Task.CompletedTask;       
         }
 
@@ -264,6 +287,31 @@ namespace Sufficit.Telephony.EventsPanel
         public AMIHubClientOptions? Options => _options;
 
         public HubConnectionState? State => _hub?.State;
+
+        /// <summary>
+        /// Is a pending status connection ?
+        /// </summary>
+        public bool IsTrying
+        {
+            get
+            {
+                if (_hub != null)
+                {
+                    if (_hub.State == HubConnectionState.Connecting || _hub.State == HubConnectionState.Reconnecting)
+                    {
+                        return true;
+                    }
+                    else if (_hub.State == HubConnectionState.Disconnected) 
+                    { 
+                        if (_cts != null && !_cts.IsCancellationRequested)
+                            if (ExecuteTask?.Status == TaskStatus.WaitingForActivation)
+                                return true; 
+                     }
+                }
+
+                return false;
+            }
+        }
 
         /// <summary>
         ///     On Status Changed or Exception occurs

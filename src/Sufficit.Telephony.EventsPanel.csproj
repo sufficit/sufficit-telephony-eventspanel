@@ -83,4 +83,8 @@
 		<ProjectReference Include="..\..\sufficit-utils\src\Sufficit.Utils.csproj" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <ProjectReference Include="..\..\sufficit-identity-core\src\Sufficit.Identity.Core.csproj" />
+	</ItemGroup>
+
 </Project>

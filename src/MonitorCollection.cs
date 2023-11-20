@@ -11,6 +11,11 @@ namespace Sufficit.Telephony.EventsPanel
 {
     public class MonitorCollection<T> : ICollection<T> where T : IMonitor
     {
+        /// <summary>
+        ///     Used for thread safe change the collection
+        /// </summary>
+        public object KeysLock => _lockKeys;
+
         private readonly IDictionary<string, T> _items;
         private readonly object _lockKeys;
         private readonly object _lockValues;
