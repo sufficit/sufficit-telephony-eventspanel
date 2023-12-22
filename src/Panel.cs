@@ -34,12 +34,7 @@ namespace Sufficit.Telephony.EventsPanel
             Cards = cards;
             Options = new EventsPanelOptions();
 
-            _service.OnEvent += OnEvent;
-
-            if (Options.AutoFill)
-                foreach (var card in _service.GetCards())
-                    Cards.Add(card);
-
+            //_service.OnEvent += OnEvent;
             _service.OnCardsChanged += OnCardsChanged;
         }
 
@@ -48,12 +43,6 @@ namespace Sufficit.Telephony.EventsPanel
             _service = service;
             Cards = new EventsPanelCardCollection();
             Options = options;
-
-            _service.OnEvent += OnEvent;
-
-            if (Options.AutoFill)
-                foreach (var card in _service.GetCards())
-                    Cards.Add(card);
 
             _service.OnCardsChanged += OnCardsChanged;
         }
@@ -74,33 +63,7 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (_service != null)
             {
-                _service.OnEvent -= OnEvent;
                 _service.OnCardsChanged -= OnCardsChanged;
-            }
-        }
-
-        private void OnEvent(IEnumerable<string> keys, IManagerEventFromAsterisk @event)
-        {
-            foreach(string key in keys)
-            {
-                foreach (var card in Cards[key])
-                {
-                    Console.WriteLine($"card: { string.Join("|", card.Keys) }, label: { card.Label }, capturing event: { @event.GetType() }");
-                    if (@event is IChannelEvent eventChannel)
-                        card.IChannelEvent(_service.Channels, eventChannel);
-
-                    if (@event is IPeerStatusEvent eventPeerStatus)
-                        card.IPeerStatusEvent(eventPeerStatus);
-
-                    if (@event is IQueueEvent eventQueue)
-                        card.IQueueEvent(eventQueue);
-
-                    switch (@event)
-                    {
-                        case PeerEntryEvent newEvent: card.Monitor?.Event(newEvent); break;
-                        default: break;
-                    }
-                }      
             }
         }
 

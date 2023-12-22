@@ -6,6 +6,9 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager.Events;
+using Sufficit.Gateway.ReceitaNet;
+using Sufficit.Identity;
+using Sufficit.Telephony.Asterisk.Manager;
 using System;
 using System.Runtime.InteropServices;
 
@@ -34,6 +37,11 @@ namespace Sufficit.Telephony.EventsPanel
         public const string SYSTEM = "System";
 
         public const int DELAYMILLISECONDS = 30000;
+
+        /// <summary>
+        /// Last knowning exception
+        /// </summary>
+        public Exception? Exception { get; private set; }
 
         private readonly ManagerEventHandlerCollection _handlers;
         private readonly ILogger _logger;
@@ -107,9 +115,9 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         private void StateHasChanged(HubConnectionState state, Exception? ex = null)
         {
+            Exception = ex;
             OnChanged?.Invoke(state, ex);
         }
-
 
         protected bool EnsureValidHub()
         {
@@ -121,10 +129,21 @@ namespace Sufficit.Telephony.EventsPanel
 
         public Task<string?>? AccessTokenProvider { get; set; }
 
+        public void Configure (IEnumerable<AMIHubConnection> connections)
+        {
+            foreach (var info in connections)
+            {
+                var options = new AMIHubClientOptions();
+                options.Endpoint = new Uri(info.Endpoint);
+                Configure(options);
+                break;
+            }
+        }
+
         /// <summary>
         ///     Configure Hub Connection everytime that options changed
         /// </summary>
-        protected async void Configure(AMIHubClientOptions options)
+        protected async void Configure (AMIHubClientOptions options)
         {
             var validate = options.Validate();
             if (validate != null)
@@ -156,10 +175,7 @@ namespace Sufficit.Telephony.EventsPanel
                 .WithUrl(_options.Endpoint!, HttpConnectionBuilder)
                 .WithAutomaticReconnect()
                 .Build();
-             
-            //_hub.On("PeerStatusEvent", Log);
-            //_ = _hub.On<string, JsonElement>("PeerStatusEvent", (server, message) => Console.WriteLine("event received: {0}, {1}", server, message));
-            
+                         
             HandlersUpdate(_hub);
             RegisterHandlers(_hub);
         }
@@ -209,6 +225,7 @@ namespace Sufficit.Telephony.EventsPanel
             _handlers.Registered += HandlerRegistered;
 
             _logger = logger;
+
             Configure(monitor.CurrentValue);
             _monitor = monitor.OnChange(Configure);
         }
@@ -287,6 +304,8 @@ namespace Sufficit.Telephony.EventsPanel
         public AMIHubClientOptions? Options => _options;
 
         public HubConnectionState? State => _hub?.State;
+
+        public bool IsConnected => _hub?.State == HubConnectionState.Connected;
 
         /// <summary>
         /// Is a pending status connection ?

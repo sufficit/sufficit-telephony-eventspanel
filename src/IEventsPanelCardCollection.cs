@@ -5,7 +5,7 @@ using System.Collections.Specialized;
 namespace Sufficit.Telephony.EventsPanel
 {
 
-    public interface IEventsPanelCardCollection : ICollection<EventsPanelCard>
+    public interface IEventsPanelCardCollection : ICollection<EventsPanelCard>, IEventsPanelCardsAreaOptions
     {
         IEnumerable<EventsPanelCard> this[string key] { get; }
 

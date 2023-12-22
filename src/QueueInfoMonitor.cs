@@ -25,7 +25,7 @@ namespace Sufficit.Telephony.EventsPanel
             {
                 case QueueMemberStatusEvent newEvent:       Handle(Content, newEvent); break;
                 case QueueParamsEvent newEvent:             Handle(Content, newEvent); break;
-                case QueueMemberEvent newEvent:             Handle(Content, newEvent); break;
+                case AbstractQueueMemberEvent newEvent:             Handle(Content, newEvent); break;
                 case QueueCallerJoinEvent newEvent:         Handle(Content, newEvent); break;
                 case QueueCallerLeaveEvent newEvent:        Handle(Content, newEvent); break;
                 case QueueCallerAbandonEvent newEvent:      Handle(Content, newEvent); break;
@@ -38,7 +38,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         #endregion
 
-        static void Handle(QueueInfo source, QueueMemberEvent eventObj)
+        static void Handle(QueueInfo source, AbstractQueueMemberEvent eventObj)
         {
             // finding agent
             QueueAgentInfo? status = source.Agents.FirstOrDefault(s => ((IKey)s).Key == eventObj.Interface);

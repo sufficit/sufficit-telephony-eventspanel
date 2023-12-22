@@ -27,7 +27,7 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public DateTime Timestamp { get; protected set; }
 
-        public EventsPanelMonitor(IKey content)
+        public EventsPanelMonitor (IKey content)
         {
             Content = content;
         }

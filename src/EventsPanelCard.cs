@@ -22,8 +22,15 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         public bool IsMonitored => Monitor != null;
 
+        /// <summary>
+        /// Indicates that this object is active in use by frontend
+        /// </summary>
+        public bool IsRendered { get; set; }
+
         public string Label => _info.Label;
+
         public virtual EventsPanelMonitor? Monitor { get; internal set; }
+
         public ChannelInfoCollection Channels { get; }
 
 
@@ -36,7 +43,7 @@ namespace Sufficit.Telephony.EventsPanel
             Keys = new []{ Guid.NewGuid().ToString() }; 
         }
 
-        public EventsPanelCard(EventsPanelCardInfo info , EventsPanelMonitor monitor) : this(info)
+        public EventsPanelCard (EventsPanelCardInfo info , EventsPanelMonitor monitor) : this(info)
         {
             Monitor = monitor;
         }
@@ -44,8 +51,6 @@ namespace Sufficit.Telephony.EventsPanel
         /// <summary>
         /// Used to filter channels that should be showing in this card
         /// </summary>
-        /// <param name="key"></param>
-        /// <returns></returns>
         public bool IsMatch(string key)
         {
             if (!string.IsNullOrWhiteSpace(key))
@@ -55,7 +60,7 @@ namespace Sufficit.Telephony.EventsPanel
                     return true;
 
                 // checking peer or queue
-                if (IsMonitored && Monitor!.IsMatch(key))
+                if (Monitor != null && Monitor.IsMatch(key))
                     return true;
 
                 #region CHECKING CHANNELS

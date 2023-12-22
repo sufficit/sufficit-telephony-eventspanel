@@ -1,142 +1,43 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Hosting;
+﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Sufficit.Asterisk;
 using Sufficit.Asterisk.Manager.Events;
-using Sufficit.Asterisk.Manager.Events.Abstracts;
 using Sufficit.Identity;
 using System.Collections.Specialized;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public partial class EventsPanelService : BackgroundService, IEventsPanelService, IHealthCheck
-    {
-        #region IMPLEMENT HEALTH CHECK
-
-        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken)
-        {
-            if (ExecuteTask == null)
-                return Task.FromResult(HealthCheckResult.Unhealthy("not started or disposed"));
-
-            if (ExecuteTask.Status != TaskStatus.WaitingForActivation && ExecuteTask.Status != TaskStatus.Running)
-                return Task.FromResult(HealthCheckResult.Unhealthy($"status not running: {ExecuteTask.Status}"));
-
-            return Task.FromResult(HealthCheckResult.Healthy("A healthy result."));
-        }
-
-        #endregion
-    
+    public partial class EventsPanelService : EventsMonitorService, IEventsPanelService
+    {    
         #region IMPLEMENT INTERFACE EVENTSPANEL SERVICE
 
-        public bool IsConfigured => _client != null;
-
-        public const int DELAYMILLISECONDS = 30000;
+        public bool IsConfigured => EnsureValidHub();
 
         Task IEventsPanelService.ExecuteAsync(CancellationToken stoppingToken) => ExecuteAsync(stoppingToken);
 
-        private CancellationTokenSource? _cts;
-
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-        {
-            _cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);            
-            do
-            {
-                if (_client != null)
-                {
-                    if (_client.State == HubConnectionState.Disconnected)
-                    {
-                        try
-                        {
-                            await _client.StartAsync(_cts.Token);
-                            _logger.LogInformation("client state is: {state}", _client.State);
-
-                            // awaiting infinite until cancellation triggered
-                            await Task.Delay(Timeout.Infinite, _cts.Token);
-                        }
-                        catch (OperationCanceledException ex)
-                        {
-                            _logger.LogInformation("executing operation canceled");
-
-                            // invoking changed handlers
-                            ClientChanged(_client.State, ex);
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError(ex, "error on starting client, trying again in {time} milliseconds", DELAYMILLISECONDS);
-
-                            // invoking changed handlers
-                            ClientChanged(_client.State, ex);
-                        }
-                    }
-                } 
-                else
-                {
-                    _logger.LogTrace("null client, not configured yet, trying again in {time} milliseconds", DELAYMILLISECONDS);
-                }
-            } while (await Delay(_cts.Token));
-
-            if (_client != null && _client.State == HubConnectionState.Connected)
-                await _client.StopAsync(CancellationToken.None);            
-        }
-
-        private async Task<bool> Delay(CancellationToken cancellationToken)
-        {
-            if(cancellationToken.IsCancellationRequested) 
-                return false;
-
-            try
-            {
-                await Task.Delay(TimeSpan.FromMilliseconds(DELAYMILLISECONDS), cancellationToken);
-                return true;
-            }
-            catch (OperationCanceledException) { return false; }
-        }
-
         #endregion
 
-        private readonly HashSet<IDisposable> _subscriptions;
         private readonly IDisposable? _optionsMonitor;
         private readonly ILogger _logger;
         private readonly IEventsPanelCardCollection _cards;
         private readonly IServiceProvider _provider;
 
-        private AMIHubClient? _client;
-
-        public ChannelInfoCollection Channels { get; }
-
-        public PeerInfoCollection Peers { get; }
-
-        public QueueInfoCollection Queues { get; }
-
         public ICollection<Exception> Exceptions { get; }
 
-        public Uri? EndPoint =>
-            _client?.Options?.Endpoint;
-
-        /// <inheritdoc cref="AMIHubClient.OnChanged"/>
-        public event Action<HubConnectionState?, Exception?>? OnChanged;
+        public Uri? EndPoint => base.Options?.Endpoint;
 
         /// <summary>
         /// On base cards collection changed
         /// </summary>
         public event Action<EventsPanelCard?, NotifyCollectionChangedAction>? OnCardsChanged;
-
-        /// <summary>
-        /// On event received from servers
-        /// </summary>
-        public event Action<IEnumerable<string>, IManagerEventFromAsterisk>? OnEvent;
-
-        public EventsPanelService(IServiceProvider provider)
+                
+        public EventsPanelService(IServiceProvider provider) : base(
+            provider.GetRequiredService<ILogger<EventsMonitorService>>(),
+            provider.GetRequiredService< IOptionsMonitor<AMIHubClientOptions>>(),
+            provider.GetRequiredService<ILogger<AMIHubClient>>()
+            )
         {
             Exceptions = new List<Exception>();
-            Channels = new ChannelInfoCollection();
-            Peers = new PeerInfoCollection();
-            Queues = new QueueInfoCollection();
-
-            _subscriptions = new HashSet<IDisposable>();
             _provider = provider;
 
             var cardsImplementation = _provider.GetService<IEventsPanelCardCollection>();
@@ -149,17 +50,10 @@ namespace Sufficit.Telephony.EventsPanel
             _cards.OnChanged += OnCardsChanged;
 
             _logger = _provider.GetRequiredService<ILogger<EventsPanelService>>();
-                       
-            var client = _provider.GetService<AMIHubClient>();
-            if (client != null)
-            {
-                var accesstokenprovider = _provider.CreateScope().ServiceProvider.GetService<ITokenProvider>();
-                if (accesstokenprovider != null)
-                    client.AccessTokenProvider = accesstokenprovider.GetTokenAsync();
-                Configure(client);
-            }             
-
-            Panel = new Panel(_cards, this);
+             
+            var accesstokenprovider = _provider.CreateScope().ServiceProvider.GetService<ITokenProvider>();
+            if (accesstokenprovider != null)
+                AccessTokenProvider = accesstokenprovider.GetTokenAsync();                       
 
             var monitor = _provider.GetRequiredService<IOptionsMonitor<EventsPanelServiceOptions>>();
             _optionsMonitor = monitor.OnChange(Configure);            
@@ -167,12 +61,12 @@ namespace Sufficit.Telephony.EventsPanel
             _logger.LogTrace($"Serviço de Controle { GetType().Name } construído !");
         }
 
-        public void Configure(EventsPanelServiceOptions options)
+        public void Configure (EventsPanelServiceOptions options)
         {
             if (!options.Equals(Options))
             {
                 Options = options;
-                _logger.LogInformation($"options updated, max buttons: {Options.MaxButtons}, cards: {Options.Cards.Count()}, show trunks: {Options.ShowTrunks}");
+                _logger.LogInformation($"options updated, max buttons: {Options.MaxButtons}, cards: {Options.Cards.Count()}, show only peers: {Options.OnlyPeers}");
 
                 if (Options.Cards.Any())
                 {
@@ -181,152 +75,7 @@ namespace Sufficit.Telephony.EventsPanel
                         var cardMonitor = EventsPanelCardExtensions.CardCreate(card, this);
                         _cards.Add(cardMonitor);
                     }
-                }
-
-                Panel.Update(Options);              
-            }
-        }
-
-        protected void Subscribe<T>(Action<string, T> action) where T : IManagerEvent
-        {
-            if (_client == null) throw new Exception("null client");
-
-            var handler = _client.Register<T>(action);
-            _subscriptions.Add(handler);
-        }
-
-        protected void Subscribe<T>(Func<string, T, Task> action) where T : IManagerEvent
-        {
-            if (_client == null) throw new Exception("null client");
-
-            var handler = _client.Register<T>(action);
-            _subscriptions.Add(handler);
-        }
-
-        public Task<string?>? AccessTokenProvider { get => _client?.AccessTokenProvider; set { if (_client != null) _client.AccessTokenProvider = value; } }
-
-        public async void Configure(AMIHubClient client)
-        {
-            if (client != null && !client.Equals(_client))
-            {
-                if (_client != null)
-                {
-                    await _client.DisposeAsync();
-                    foreach (var subs in _subscriptions) 
-                        subs?.Dispose();
-
-                    _subscriptions.Clear();
-                }
-
-                _client = client;
-                _client.OnChanged += ClientChanged;
-
-                Subscribe<SuccessfulAuthEvent>(IManagerEventHandler);
-                Subscribe<ChallengeSentEvent>(IManagerEventHandler);
-                Subscribe<InvalidPasswordEvent>(IManagerEventHandler);
-                Subscribe<ChallengeResponseFailedEvent>(IManagerEventHandler);
-
-                Subscribe<PeerStatusEvent>(PeerStatusEventHandler);
-
-                Subscribe<NewChannelEvent>(IManagerEventHandler);
-                Subscribe<NewStateEvent>(IManagerEventHandler);
-                Subscribe<HangupEvent>(IManagerEventHandler);
-                Subscribe<StatusEvent>(IManagerEventHandler);
-                Subscribe<PeerEntryEvent>(IManagerEventHandler);
-
-                // events queue and channels
-                Subscribe<QueueCallerJoinEvent>(IManagerEventHandler);
-                Subscribe<QueueCallerAbandonEvent>(IManagerEventHandler);
-                Subscribe<QueueCallerLeaveEvent>(IManagerEventHandler);
-
-                Subscribe<QueueMemberAddedEvent>(IManagerEventHandler);
-                Subscribe<QueueMemberPauseEvent>(IManagerEventHandler);
-                Subscribe<QueueMemberPenaltyEvent>(IManagerEventHandler);
-                Subscribe<QueueMemberRemovedEvent>(IManagerEventHandler);
-                Subscribe<QueueMemberRinginuseEvent>(IManagerEventHandler);
-                Subscribe<QueueMemberStatusEvent>(IManagerEventHandler);
-
-                Subscribe<QueueParamsEvent>(IManagerEventHandler);
-            }
-        }
-
-        protected void PeerStatusEventHandler(string sender, PeerStatusEvent @event)
-        {
-            PeerInfoMonitor? monitor;
-            lock (Peers.KeysLock)
-            {
-                monitor = Peers[@event.Peer];
-                if (monitor == null)
-                {
-                    monitor = new PeerInfoMonitor(@event.Peer);
-                    monitor.Permanent = false;
-                    Peers.Add(monitor);
-                }
-            }
-
-            // processing event
-            monitor.Event(@event);
-        }
-
-        public void IManagerEventHandler(string sender, IManagerEventFromAsterisk @event)
-        {
-            _logger.LogTrace("event: {type}, from: {sender}", @event.GetType(), sender);
-            try
-            {
-                var cardKeys = new HashSet<string>();
-                if (@event is IChannelEvent eventChannel)
-                {
-                    bool proccess = true;
-                    if (ShouldIgnore)
-                    {
-                        var channel = new AsteriskChannel(eventChannel.Channel);
-                        if (channel.Protocol == AsteriskChannelProtocol.LOCAL) 
-                            proccess = false;
-                    }
-
-                    if (proccess)
-                    {
-                        var key = HandleEvent(this, eventChannel);
-                        cardKeys.Add(key);
-                    }
-                }
-                
-                if (@event is SecurityEvent securityEvent)
-                    cardKeys.Add(HandleEvent(this, securityEvent));
-                else if (@event is IPeerStatus peerStatusEvent)                                        
-                    cardKeys.Add(HandleEvent(this, peerStatusEvent));                
-
-                if (@event is IQueueEvent eventQueue)                
-                    cardKeys.Add(HandleEvent(this, eventQueue));
-
-                //_logger.LogDebug($"event: {@event.GetType()}, cardKeys: {string.Join('|', cardKeys)}");
-
-                // handling auto discover cards
-                if (Options != null && Options.AutoFill)
-                {
-                    var newEvent = @event;
-                    var cards = new HashSet<EventsPanelCard>();
-                    foreach (var key in cardKeys)
-                    {
-                        //_logger.LogDebug($"card: {key}");
-                        foreach (var card in HandleCard(key, newEvent))
-                        {
-                            //_logger.LogDebug($"card: {card.Label} :: { string.Join(" | ", card.Keys) }");
-                            cards.Add(card);
-                        }
-                    }
-                }
-
-                /*
-                foreach (var card in cards)
-                    this.Event(card, newEvent);                    
-                */
-
-                OnEvent?.Invoke(cardKeys, @event);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, $"error on receive event: { @event.GetType() }, from: { sender }");
+                }          
             }
         }
 
@@ -341,18 +90,7 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        /// <summary>
-        /// Last knowning exception
-        /// </summary>
-        public Exception? Exception { get; private set; }
-
-        private void ClientChanged(HubConnectionState? state, Exception? ex)
-        {
-            Exception = ex;
-            OnChanged?.Invoke(state, ex);
-        }
-
-        public EventsPanelServiceOptions? Options { get; internal set; }
+        public new EventsPanelServiceOptions? Options { get; internal set; }
                         
         #region EVENT HANDLERS
 
@@ -360,7 +98,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         protected bool ShouldFill => !LimitReached && (Options == null || Options.AutoFill);
 
-        protected bool ShouldIgnore => Options == null || Options.IgnoreLocal;
+        public override bool IgnoreLocal => Options == null || Options.IgnoreLocal;
 
         protected bool ShouldFillPeers => ShouldFill;
 
@@ -414,41 +152,12 @@ namespace Sufficit.Telephony.EventsPanel
             return false;
         }
 
-        public bool IsConnected => _client?.State == HubConnectionState.Connected;
-
-        /// <summary>
-        /// Is a pending status connection ?
-        /// </summary>
-        public bool IsTrying => _client?.IsTrying ?? false;
-
         /// <summary>
         /// Background task status
         /// </summary>
-        public TaskStatus? Status => _client?.ExecuteTask?.Status ?? ExecuteTask?.Status;
+        public TaskStatus? Status => ExecuteTask?.Status ?? ExecuteTask?.Status;
 
-        public HubConnectionState? State => _client?.State;
-
-        public Panel Panel { get; }
-
-        public async Task GetPeerStatus(CancellationToken cancellationToken = default)
-        {
-            if (_client != null && _client.State == HubConnectionState.Connected)
-                await _client.GetPeerStatus(cancellationToken);
-        }
-
-        public async Task GetQueueStatus(string queue, string member, CancellationToken cancellationToken = default)
-        {
-            if (_client != null && _client.State == HubConnectionState.Connected)
-                await _client.GetQueueStatus(queue, member, cancellationToken);
-        }
 
         public delegate Task<string> AsyncTaskMonitor(EventsPanelCard monitor);
-
-        public Func<EventsPanelCard, Task<string>>? CardAvatarHandler { get; set; }
-
-        /// <summary>
-        ///     IMonitor Key, only representative, not used.
-        /// </summary>
-        public string Key => nameof(EventsPanelService);
     }
 }

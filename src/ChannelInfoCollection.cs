@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
@@ -31,6 +32,21 @@ namespace Sufficit.Telephony.EventsPanel
                     Remove(monitor);                    
                 }
             }
+        }
+
+        /// <summary>
+        /// GetOrCreate Monitor
+        /// </summary>
+        public ChannelInfoMonitor Monitor(string key, string? queue = null)
+        {
+            var monitor = this[key];
+            if (monitor == null)
+            {
+                monitor = new ChannelInfoMonitor(key);
+                monitor.Content.Queue = queue;
+                Add(monitor);
+            }
+            return monitor;
         }
     }
 }

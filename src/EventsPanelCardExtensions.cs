@@ -41,14 +41,17 @@ namespace Sufficit.Telephony.EventsPanel
             return source.Label;
         }
 
-        public static EventsPanelCard CardCreate(this EventsPanelCardInfo source, EventsPanelService service)
+        /// <summary>
+        ///     Used for creating cards and monitor from sufficit endpoints request
+        /// </summary>
+        public static EventsPanelCard CardCreate(this EventsPanelCardInfo source, EventsMonitorService service)
         {
             switch (source.Kind)
             {
                 case EventsPanelCardKind.QUEUE:
                     {
                         var key = source.GetQueueKey();
-                        var monitor = EventsPanelService.Monitor(service.Queues, key);
+                        var monitor = service.Queues.Monitor(key);
                         return new EventsPanelQueueCard(source, monitor);
                     }
                 case EventsPanelCardKind.PEER:
@@ -56,7 +59,7 @@ namespace Sufficit.Telephony.EventsPanel
                         var key = source.GetPeerKey();
                         if (key != null)
                         {
-                            var monitor = EventsPanelService.Monitor(service.Peers, key);
+                            var monitor = service.Peers.Monitor(key);
                             return new EventsPanelPeerCard(source, monitor);
                         } else
                             return new EventsPanelPeerCard(source);
@@ -66,7 +69,7 @@ namespace Sufficit.Telephony.EventsPanel
                         var key = source.GetPeerKey();
                         if (key != null)
                         {
-                            var monitor = EventsPanelService.Monitor(service.Peers, key);
+                            var monitor = service.Peers.Monitor(key);
                             return new EventsPanelTrunkCard(source, monitor);
                         }
                         else

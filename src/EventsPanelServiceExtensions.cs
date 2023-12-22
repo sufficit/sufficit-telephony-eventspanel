@@ -15,7 +15,7 @@ namespace Sufficit.Telephony.EventsPanel
                 case EventsPanelCardKind.QUEUE:
                     {
                         var key = info.GetQueueKey();
-                        var monitor = EventsPanelService.Monitor(source.Queues, key);
+                        var monitor = source.Queues.Monitor(key);
                         cardResult = new EventsPanelQueueCard(info, monitor);
                         break;
                     }
@@ -24,7 +24,7 @@ namespace Sufficit.Telephony.EventsPanel
                         var key = info.GetPeerKey();
                         if (key != null)
                         {
-                            var monitor = EventsPanelService.Monitor(source.Peers, key);
+                            var monitor = source.Peers.Monitor(key);
                             cardResult =new EventsPanelPeerCard(info, monitor);
                         }
                         else
@@ -36,7 +36,7 @@ namespace Sufficit.Telephony.EventsPanel
                         var key = info.GetPeerKey();
                         if (key != null)
                         {
-                            var monitor = EventsPanelService.Monitor(source.Peers, key);
+                            var monitor = source.Peers.Monitor(key);
                             cardResult =new EventsPanelTrunkCard(info, monitor);
                         }
                         else
@@ -48,6 +48,18 @@ namespace Sufficit.Telephony.EventsPanel
 
             source.Append(cardResult);
             return true;
+        }
+
+        public static IEnumerable<EventsPanelCard> GetVisibles(this Panel? source)
+        {
+            if (source != null)
+            {
+                foreach (EventsPanelPeerCard item in source.Cards)
+                {
+                    if (item.IsRendered)
+                        yield return item;
+                }
+            }
         }
     }
 }

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
-    public class EventsPanelCardCollection : CardCollection<EventsPanelCard>, IEventsPanelCardCollection
+    public class EventsPanelCardCollection : CardCollection<EventsPanelCard>, IEventsPanelCardCollection, IEventsPanelCardsAreaOptions
     {
         /// <summary>
         /// Sending lock object to base, multi thread support
@@ -28,6 +28,11 @@ namespace Sufficit.Telephony.EventsPanel
                 return Array.Empty<EventsPanelCard>();
             }
         }
+
+        /// <inheritdoc cref="IEventsPanelCardsAreaOptions.OnlyPeers"/>
+        public bool? OnlyPeers { get; set; }
+
+        public Func<EventsPanelCardInfo, Task<string>>? CardAvatarHandler { get; set; }
 
         public IEnumerable<EventsPanelTrunkCard> Trunks
             => ToList<EventsPanelTrunkCard>();
