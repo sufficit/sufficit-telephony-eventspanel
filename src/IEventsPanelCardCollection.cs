@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Text.Json.Serialization;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -20,5 +21,8 @@ namespace Sufficit.Telephony.EventsPanel
         IEnumerable<EventsPanelPeerCard> Peers { get; }
 
         IEnumerable<EventsPanelQueueCard> Queues { get; }
+
+        [JsonIgnore]
+        Func<EventsPanelCardInfo, Task<string>>? CardAvatarHandler { get; set; }
     }
 }

@@ -1,19 +1,9 @@
-﻿using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
+﻿using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk;
 using Sufficit.Asterisk.Manager.Events;
 using Sufficit.Asterisk.Manager.Events.Abstracts;
-using Sufficit.Notification;
 using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -89,38 +79,38 @@ namespace Sufficit.Telephony.EventsPanel
         {
             var monitor = Peers.Monitor(@event.Peer, false);
             monitor.Event(@event);
+
+            var cardKeys = new string[] { @event.GetEventKey() };
+            DispatchEvent(cardKeys, @event);
         }
 
         private void IManagerEventHandler(string sender, IManagerEventFromAsterisk @event)
         {
-            return;
+            //return;
 
             _logger.LogTrace("event: {type}, from: {sender}", @event.GetType(), sender);
             var cardKeys = new HashSet<string>();
             if (@event is IChannelEvent eventChannel)
             {
-                bool proccess = true;
+                bool process = true;
                 if (IgnoreLocal)
                 {
                     var channel = new AsteriskChannel(eventChannel.Channel);
                     if (channel.Protocol == AsteriskChannelProtocol.LOCAL)
-                        proccess = false;
+                        process = false;
                 }
 
-                if (proccess)
-                {
-                    var key = Channels.HandleEvent(eventChannel);
-                    cardKeys.Add(key);
-                }
+                if (process)                
+                    cardKeys.Add(eventChannel.GetEventKey());                
             }
 
             if (@event is SecurityEvent securityEvent)
-                cardKeys.Add(Peers.HandleEvent(securityEvent));
+                cardKeys.Add(securityEvent.GetEventKey());
             else if (@event is IPeerStatus peerStatusEvent)
-                cardKeys.Add(Peers.HandleEvent(peerStatusEvent));
+                cardKeys.Add(peerStatusEvent.GetEventKey());
 
             if (@event is IQueueEvent eventQueue)
-                cardKeys.Add(Queues.HandleEvent(eventQueue));
+                cardKeys.Add(eventQueue.GetEventKey());
 
             DispatchEvent(cardKeys, @event);
         }

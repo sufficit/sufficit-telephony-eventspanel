@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections;
-using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using System.Text.Json.Serialization;
 
 namespace Sufficit.Telephony.EventsPanel
 {
@@ -32,6 +29,7 @@ namespace Sufficit.Telephony.EventsPanel
         /// <inheritdoc cref="IEventsPanelCardsAreaOptions.OnlyPeers"/>
         public bool? OnlyPeers { get; set; }
 
+        [JsonIgnore]
         public Func<EventsPanelCardInfo, Task<string>>? CardAvatarHandler { get; set; }
 
         public IEnumerable<EventsPanelTrunkCard> Trunks

@@ -3,6 +3,7 @@ using Sufficit.Asterisk.Manager.Events.Abstracts;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -23,47 +24,56 @@ namespace Sufficit.Telephony.EventsPanel
             var monitor = source.Monitor(@event.Channel, queue);
             monitor.Event(@event);
 
-            // return discover key to card
-            var index = @event.Channel.LastIndexOf('-');
-            var key = @event.Channel.Substring(0, index);
-            return key;
+            return @event.GetEventKey();
         }
 
+        public static string GetEventKey(this IChannelEvent @event)
+        {
+            // return discover key to card
+            var index = @event.Channel.LastIndexOf('-');
+            return @event.Channel.Substring(0, index);
+        }
 
         /// <summary>
         /// Handle Peer events and create a monitor if not exists
         /// </summary>
         public static string HandleEvent(this PeerInfoCollection source, SecurityEvent @event)
         {
-            var key = $"{@event.Service}/{@event.AccountId}";
+            var key = GetEventKey(@event);
             var monitor = source.Monitor(key);
             monitor.Event(@event);
             return key;
         }
+
+        public static string GetEventKey(this SecurityEvent @event)
+            => $"{@event.Service}/{@event.AccountId}";         
 
         /// <summary>
         /// Handle Peer events and create a monitor if not exists
         /// </summary>
         public static string HandleEvent(this PeerInfoCollection source, IPeerStatus @event)
         {
-            var key = @event.Peer;
+            var key = @event.GetEventKey();
             var monitor = source.Monitor(key);
             monitor.Event(@event);
             return key;
         }
 
+        public static string GetEventKey(this IPeerStatus @event)
+            => @event.Peer;
+
         /// <summary>
-        /// Handle Queue events and create a monitor if not exists
+        ///     Handle Queue events and create a monitor if not exists
         /// </summary>
-        /// <param name="source"></param>
-        /// <param name="event"></param>
-        /// <returns></returns>
         public static string HandleEvent(this QueueInfoCollection source, IQueueEvent @event)
         {
-            var key = @event.Queue;
+            var key = @event.GetEventKey();
             var monitor = source.Monitor(@event.Queue);
             monitor.Event(@event);
             return key;
         }
+
+        public static string GetEventKey(this IQueueEvent @event)
+            => @event.Queue;
     }
 }
