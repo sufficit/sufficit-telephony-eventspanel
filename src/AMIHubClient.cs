@@ -6,8 +6,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Sufficit.Asterisk.Manager.Events;
-using Sufficit.Gateway.ReceitaNet;
-using Sufficit.Identity;
 using Sufficit.Telephony.Asterisk.Manager;
 using System;
 using System.Runtime.InteropServices;
@@ -341,14 +339,14 @@ namespace Sufficit.Telephony.EventsPanel
 
         public async Task GetPeerStatus(CancellationToken cancellationToken = default)
         {
-            if (_hub?.State == HubConnectionState.Connected)    
-                await _hub.InvokeAsync("GetPeerStatus", cancellationToken);
+            if (IsConnected)    
+                await _hub!.InvokeAsync("GetPeerStatus", cancellationToken);
         }
 
         public async Task GetQueueStatus(string queue, string member, CancellationToken cancellationToken = default)
         {
-            if (_hub?.State == HubConnectionState.Connected)
-                await _hub.InvokeAsync("GetQueueStatus", queue, member, cancellationToken);
+            if (IsConnected)
+                await _hub!.InvokeAsync("GetQueueStatus", queue, member, cancellationToken);
         }
 
         public override void Dispose()

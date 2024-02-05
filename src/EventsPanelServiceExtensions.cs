@@ -54,7 +54,7 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (source != null)
             {
-                foreach (EventsPanelPeerCard item in source.Cards)
+                foreach (EventsPanelPeerCard item in source.Cards.OfType<EventsPanelPeerCard>())
                 {
                     if (item.IsRendered)
                         yield return item;
