@@ -53,7 +53,7 @@ namespace Sufficit.Telephony.EventsPanel
              
             var accesstokenprovider = _provider.CreateScope().ServiceProvider.GetService<ITokenProvider>();
             if (accesstokenprovider != null)
-                AccessTokenProvider = accesstokenprovider.GetTokenAsync();                       
+                AccessTokenProvider = accesstokenprovider.GetTokenAsync().AsTask();                       
 
             var monitor = _provider.GetRequiredService<IOptionsMonitor<EventsPanelServiceOptions>>();
             _optionsMonitor = monitor.OnChange(Configure);            
