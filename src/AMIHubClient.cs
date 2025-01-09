@@ -179,9 +179,7 @@ namespace Sufficit.Telephony.EventsPanel
         }
 
         protected void HttpConnectionBuilder(HttpConnectionOptions options)
-        {
-            _logger.LogWarning("configuring http connection options");
-            
+        {            
             options.AccessTokenProvider = async () => await AccessTokenProvider!;
             options.HttpMessageHandlerFactory = (message) =>
             {
@@ -233,7 +231,7 @@ namespace Sufficit.Telephony.EventsPanel
         /// </summary>
         private void HandlerRegistered(object? sender, ManagerEventHandler handler)
         {
-            if (_hub == null) throw new Exception("null hub");
+            if (_hub == null) return;
 
             _logger.LogTrace("registering by event key: {0}, types: {0}", handler.Key, handler.Types);
             handler.Disposable = _hub.On(handler.Key, handler.Types, handler.Action!, handler.State);
