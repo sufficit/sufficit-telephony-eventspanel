@@ -168,7 +168,7 @@ namespace Sufficit.Telephony.EventsPanel
             _hub = new HubConnectionBuilder()
                 .AddJsonProtocol(opts =>
                 {
-                    opts.PayloadSerializerOptions = Sufficit.Json.Options;
+                    opts.PayloadSerializerOptions = Sufficit.Json.JsonSerializer.Options;
                 })
                 .WithUrl(_options.Endpoint!, HttpConnectionBuilder)
                 .WithAutomaticReconnect()

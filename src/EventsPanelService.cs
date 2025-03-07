@@ -51,9 +51,11 @@ namespace Sufficit.Telephony.EventsPanel
 
             _logger = _provider.GetRequiredService<ILogger<EventsPanelService>>();
              
-            var accesstokenprovider = _provider.CreateScope().ServiceProvider.GetService<ITokenProvider>();
+            var accesstokenprovider = _provider.GetService<ITokenProvider>();
             if (accesstokenprovider != null)
-                AccessTokenProvider = accesstokenprovider.GetTokenAsync().AsTask();                       
+                AccessTokenProvider = accesstokenprovider.GetTokenAsync().AsTask();
+            else
+                _logger.LogWarning("no token provider available");
 
             var monitor = _provider.GetRequiredService<IOptionsMonitor<EventsPanelServiceOptions>>();
             _optionsMonitor = monitor.OnChange(Configure);            
