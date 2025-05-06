@@ -77,7 +77,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         public static EventsPanelCard HandlePeerCard(string key, EventsPanelService service)
         {
-            var channel = new AsteriskChannel(key);
+            var channel = Sufficit.Asterisk.Utils.AsteriskChannelGenerate(key);
             var cardinfo = new EventsPanelCardInfo();
             cardinfo.Kind = EventsPanelCardKind.PEER;
             cardinfo.Label = channel.Name ?? "Unlabeled";
@@ -114,7 +114,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         public static EventsPanelCard HandleCardByEvent(this IChannelEvent source, EventsPanelService service)
         {
-            var channel = new AsteriskChannel(source.Channel);
+            var channel = Sufficit.Asterisk.Utils.AsteriskChannelGenerate(source.Channel);
             var peerId = channel.GetPeer();
             Console.WriteLine($"adding a new peer card, key: {peerId}");
 

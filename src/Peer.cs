@@ -15,7 +15,7 @@ namespace Sufficit.Telephony.EventsPanel
             Name = name;
         }
 
-        public Peer(string key)
+        public Peer (string key)
         {
             if (!string.IsNullOrWhiteSpace(key))
             {
@@ -23,12 +23,12 @@ namespace Sufficit.Telephony.EventsPanel
                 {
                     var splitted = key.Split('/');
                     var tech = splitted[0];
-                    Protocol = AsteriskChannelExtensions.ToAsteriskChannelProtocol(tech);
+                    Protocol = Sufficit.Asterisk.Utils.ToAsteriskChannelProtocol(tech);
                     Name = splitted[1];
                 }
                 else Name = key; 
             }
-            else { throw new ArgumentNullException("key"); }
+            else { throw new ArgumentNullException(nameof(key)); }
         }
 
         public AsteriskChannelProtocol Protocol { get; }

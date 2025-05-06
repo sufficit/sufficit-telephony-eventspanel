@@ -95,7 +95,7 @@ namespace Sufficit.Telephony.EventsPanel
                 bool process = true;
                 if (IgnoreLocal)
                 {
-                    var channel = new AsteriskChannel(eventChannel.Channel);
+                    var channel = Sufficit.Asterisk.Utils.AsteriskChannelGenerate(eventChannel.Channel);
                     if (channel.Protocol == AsteriskChannelProtocol.LOCAL)
                         process = false;
                 }
