@@ -9,7 +9,7 @@ namespace Sufficit.Telephony.EventsPanel
     {
         public static IServiceCollection AddEventsPanel(this IServiceCollection services)
         {
-            var provider = services.BuildServiceProvider();
+            var provider = services.BuildServiceProvider(false);
             var configuration = provider.GetRequiredService<IConfiguration>();
             
             services.Configure<EventsPanelServiceCards>(configuration.GetSection(EventsPanelServiceCards.SECTIONNAME));
