@@ -3,11 +3,8 @@
 	
 	<PropertyGroup Label="Sufficit Targeting">
 		<TargetFramework>net9.0</TargetFramework>
-		<LangVersion>10.0</LangVersion>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<Nullable>enable</Nullable>
 		<RootNamespace>Sufficit.Telephony.EventsPanel</RootNamespace>
-		<Configurations>Debug;Release;Packing</Configurations>
+		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
 
 	<PropertyGroup Label="Sufficit Versioning">
@@ -63,34 +60,47 @@
 			<PackagePath></PackagePath>
 		</None>
 	</ItemGroup>
+
+	<!-- #region Sufficit Versioning Options V:202508251150 -->
+
+	<PropertyGroup Label="Sufficit Versioning Options" Condition=" '$(TargetFramework)' == 'net9.0' ">
+		<PkgVersion>[9.*,10.0.0)</PkgVersion>
+		<LangVersion>12.0</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
+	<!-- #endregion -->
 	
 	<ItemGroup>
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="[9.*,10.0.0)" />
-		<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="[9.*,10.0.0)" />
-		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="[9.*,10.0.0)" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="[9.*,10.0.0)" />
-		<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="[9.*,10.0.0)" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="$(PkgVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="$(PkgVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(PkgVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(PkgVersion)" />
+		<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(PkgVersion)" />
 		<PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
-		<PackageReference Include="System.Runtime.Caching" Version="[9.*,10.0.0)" />
-		<PackageReference Include="System.Text.Json" Version="[9.*,10.0.0)" />
+		<PackageReference Include="System.Runtime.Caching" Version="$(PkgVersion)" />
+		<PackageReference Include="System.Text.Json" Version="$(PkgVersion)" />
 	</ItemGroup>
+	
+	<ItemGroup Label="Sufficit Dependencies">
+		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" Condition="Exists('..\\..\\sufficit-asterisk-core\\src\\Sufficit.Asterisk.Core.csproj')" />
+		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" Condition="!Exists('..\\..\\sufficit-asterisk-core\\src\\Sufficit.Asterisk.Core.csproj') " />
 
-	<ItemGroup Label="Sufficit Dependencies on Packing" Condition=" '$(Configuration)' == 'Packing' ">
-		<PackageReference Include="Sufficit.Asterisk.Core" Version="1.*" />
-		<PackageReference Include="Sufficit.Asterisk.Utils" Version="1.*" />
-		<PackageReference Include="Sufficit.Base" Version="1.*" />
-		<PackageReference Include="Sufficit.Identity.Core" Version="1.*" />
-		<PackageReference Include="Sufficit.Telephony.EventsPanel.Core" Version="1.*" />
-		<PackageReference Include="Sufficit.Utils" Version="1.*" />
-	</ItemGroup>
+		<ProjectReference Include="..\..\sufficit-asterisk-utils\src\Sufficit.Asterisk.Utils.csproj" Condition="Exists('..\\..\\sufficit-asterisk-utils\\src\\Sufficit.Asterisk.Utils.csproj')" />
+		<PackageReference Include="Sufficit.Asterisk.Utils" Version="1.*" Condition="!Exists('..\\..\\sufficit-asterisk-utils\\src\\Sufficit.Asterisk.Utils.csproj') " />
 
-	<ItemGroup Label="Sufficit Local Dependencies" Condition=" '$(Configuration)' != 'Packing' ">
-		<ProjectReference Include="..\..\sufficit-asterisk-core\src\Sufficit.Asterisk.Core.csproj" />
-		<ProjectReference Include="..\..\sufficit-asterisk-utils\src\Sufficit.Asterisk.Utils.csproj" />
-		<ProjectReference Include="..\..\sufficit-base\src\Sufficit.Base.csproj" />
-		<ProjectReference Include="..\..\sufficit-identity-core\src\Sufficit.Identity.Core.csproj" />
-		<ProjectReference Include="..\..\sufficit-telephony-eventspanel-core\src\Sufficit.Telephony.EventsPanel.Core.csproj" />
-		<ProjectReference Include="..\..\sufficit-utils\src\Sufficit.Utils.csproj" />
+		<ProjectReference Include="..\..\sufficit-base\src\Sufficit.Base.csproj" Condition="Exists('..\\..\\sufficit-base\\src\\Sufficit.Base.csproj')" />
+		<PackageReference Include="Sufficit.Base" Version="1.*" Condition="!Exists('..\\..\\sufficit-base\\src\\Sufficit.Base.csproj') " />
+
+		<ProjectReference Include="..\..\sufficit-identity-core\src\Sufficit.Identity.Core.csproj" Condition="Exists('..\\..\\sufficit-identity-core\\src\\Sufficit.Identity.Core.csproj')" />
+		<PackageReference Include="Sufficit.Identity.Core" Version="1.*" Condition="!Exists('..\\..\\sufficit-identity-core\\src\\Sufficit.Identity.Core.csproj') " />
+
+		<ProjectReference Include="..\..\sufficit-telephony-eventspanel-core\src\Sufficit.Telephony.EventsPanel.Core.csproj" Condition="Exists('..\\..\\sufficit-telephony-eventspanel-core\\src\\Sufficit.Telephony.EventsPanel.Core.csproj')" />
+		<PackageReference Include="Sufficit.Telephony.EventsPanel.Core" Version="1.*" Condition="!Exists('..\\..\\sufficit-telephony-eventspanel-core\\src\\Sufficit.Telephony.EventsPanel.Core.csproj') " />
+
+		<ProjectReference Include="..\..\sufficit-utils\src\Sufficit.Utils.csproj" Condition="Exists('..\\..\\sufficit-utils\\src\\Sufficit.Utils.csproj')" />
+		<PackageReference Include="Sufficit.Utils" Version="1.*" Condition="!Exists('..\\..\\sufficit-utils\\src\\Sufficit.Utils.csproj') " />
 	</ItemGroup>
 
 </Project>
