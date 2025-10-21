@@ -34,7 +34,7 @@ namespace Sufficit.Telephony.EventsPanel
             Cards = cards;
             Options = new EventsPanelOptions();
 
-            //_service.OnEvent += OnEvent;
+            _service.OnEvent += OnEvent;
             _service.OnCardsChanged += OnCardsChanged;
         }
 
@@ -44,6 +44,7 @@ namespace Sufficit.Telephony.EventsPanel
             Cards = new EventsPanelCardCollection();
             Options = options;
 
+            _service.OnEvent += OnEvent;
             _service.OnCardsChanged += OnCardsChanged;
         }
 
@@ -56,6 +57,34 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
+        private void OnEvent(IEnumerable<string> cardKeys, IManagerEventFromAsterisk @event)
+        {
+            foreach (var key in cardKeys)
+            {
+                var cards = Cards[key];
+                foreach (var card in cards)
+                {
+                    if (card.Monitor != null)
+                        card.Monitor.Event(@event);
+
+                    if (@event is IChannelEvent channelEvent)
+                    {
+                        var channelKey = channelEvent.GetEventKey();
+                        var channelMonitor = _service.Channels.Monitor(channelKey);
+                        channelMonitor.Event(@event);
+
+                        if (card.IsMatch(channelKey))
+                        {
+                            if (!card.Channels.Contains(channelMonitor))
+                                card.Channels.Add(channelMonitor);
+                        }
+                    }
+
+                    if (card.Info.Exclusive) break;
+                }
+            }
+        }
+
         /// <summary>
         /// Important for avoid duplicate event processing
         /// </summary>
@@ -63,6 +92,7 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (_service != null)
             {
+                _service.OnEvent -= OnEvent;
                 _service.OnCardsChanged -= OnCardsChanged;
             }
         }
