@@ -69,11 +69,11 @@ namespace Sufficit.Telephony.EventsPanel
 
                     if (@event is IChannelEvent channelEvent)
                     {
-                        var channelKey = channelEvent.GetEventKey();
-                        var channelMonitor = _service.Channels.Monitor(channelKey);
-                        channelMonitor.Event(@event);
-
-                        if (card.IsMatch(channelKey))
+                        var channelKey = _service.Channels.HandleEvent(channelEvent);
+      
+                        var channelMonitor = _service.Channels[channelEvent.Channel];
+              
+                        if (channelMonitor != null && card.IsMatch(channelKey))
                         {
                             if (!card.Channels.Contains(channelMonitor))
                                 card.Channels.Add(channelMonitor);
