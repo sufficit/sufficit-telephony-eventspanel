@@ -81,7 +81,21 @@ namespace Sufficit.Telephony.EventsPanel
                         }
                         catch (Exception ex)
                         {
-                            _logger.LogError(ex, "error on connecting hub, trying again in {time} milliseconds", DELAYMILLISECONDS);
+                            // Log connection parameters for debugging
+                            _logger.LogError(ex, 
+"Error connecting to AMI Hub. Connection details:\n" +
+                                  "  Endpoint: {Endpoint}\n" +
+                                   "  AutoStart: {AutoStart}\n" +
+                      "  Hub State: {HubState}\n" +
+                        "  Has Token: {HasToken}\n" +
+                         "  Instance: {Instance}\n" +
+                        "Retrying in {DelayMs} milliseconds",
+                      _options?.Endpoint?.ToString() ?? "NOT CONFIGURED",
+                       _options?.AutoStart ?? false,
+                       _hub.State,
+                           AccessTokenProvider != null,
+                       _instance,
+                               DELAYMILLISECONDS);
 
                             StateHasChanged(_hub.State, ex);
                         }
@@ -89,9 +103,17 @@ namespace Sufficit.Telephony.EventsPanel
                 } 
                 else
                 {
-                    _logger.LogWarning("invalid options");
-                    _cts.Cancel();
-                }               
+                    _logger.LogWarning(
+                               "Invalid AMI Hub configuration. Connection details:\n" +
+    "  Endpoint: {Endpoint}\n" +
+          "  AutoStart: {AutoStart}\n" +
+         "  Hub Exists: {HubExists}",
+                   _options?.Endpoint?.ToString() ?? "NOT CONFIGURED",
+        _options?.AutoStart ?? false,
+         _hub != null);
+                   
+                 _cts.Cancel();
+                }    
             } while (await Delay(_cts.Token));
         }        
 

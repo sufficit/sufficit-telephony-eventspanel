@@ -50,15 +50,20 @@ namespace Sufficit.Telephony.EventsPanel
             _cards.OnChanged += OnCardsChanged;
 
             _logger = _provider.GetRequiredService<ILogger<EventsPanelService>>();
-             
-            var accesstokenprovider = _provider.GetService<ITokenProvider>();
-            if (accesstokenprovider != null)
-                AccessTokenProvider = accesstokenprovider.GetTokenAsync().AsTask();
-            else
-                _logger.LogWarning("no token provider available");
+        
+            // ITokenProvider is Scoped, so we need to create a scope to resolve it
+            // This is safe because we only call it once during initialization
+using (var scope = _provider.CreateScope())
+            {
+                var accesstokenprovider = scope.ServiceProvider.GetService<ITokenProvider>();
+                if (accesstokenprovider != null)
+                    AccessTokenProvider = accesstokenprovider.GetTokenAsync().AsTask();
+                else
+                    _logger.LogWarning("no token provider available");
+            }
 
             var monitor = _provider.GetRequiredService<IOptionsMonitor<EventsPanelServiceOptions>>();
-            _optionsMonitor = monitor.OnChange(Configure);            
+            _optionsMonitor = monitor.OnChange(Configure);      
 
             _logger.LogTrace($"Serviço de Controle { GetType().Name } construído !");
         }
