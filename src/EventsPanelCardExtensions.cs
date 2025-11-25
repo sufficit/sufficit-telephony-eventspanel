@@ -42,17 +42,40 @@ namespace Sufficit.Telephony.EventsPanel
         }
 
         /// <summary>
+        /// Sincroniza channels ativos do service para o card.
+        /// Verifica todos os channels existentes e adiciona ao card se houver match.
+        /// </summary>
+        private static void SyncChannelsToCard(EventsPanelCard card, EventsMonitorService service)
+        {
+            foreach (var channel in service.Channels)
+            {
+                // Verifica se channel corresponde a este card
+                if (card.IsMatch(channel.Content.Key))
+                {
+                    // Adiciona se ainda não existe
+                    if (!card.Channels.Contains(channel))
+                    {
+                        card.Channels.Add(channel);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
         ///     Used for creating cards and monitor from sufficit endpoints request
         /// </summary>
         public static EventsPanelCard CardCreate(this EventsPanelCardInfo source, EventsMonitorService service)
         {
+            EventsPanelCard card;
+            
             switch (source.Kind)
             {
                 case EventsPanelCardKind.QUEUE:
                     {
                         var key = source.GetQueueKey();
                         var monitor = service.Queues.Monitor(key);
-                        return new EventsPanelQueueCard(source, monitor);
+                        card = new EventsPanelQueueCard(source, monitor);
+                        break;
                     }
                 case EventsPanelCardKind.PEER:
                     {
@@ -60,9 +83,13 @@ namespace Sufficit.Telephony.EventsPanel
                         if (key != null)
                         {
                             var monitor = service.Peers.Monitor(key);
-                            return new EventsPanelPeerCard(source, monitor);
-                        } else
-                            return new EventsPanelPeerCard(source);
+                            card = new EventsPanelPeerCard(source, monitor);
+                        } 
+                        else
+                        {
+                            card = new EventsPanelPeerCard(source);
+                        }
+                        break;
                     }
                 case EventsPanelCardKind.TRUNK:
                     {
@@ -70,27 +97,45 @@ namespace Sufficit.Telephony.EventsPanel
                         if (key != null)
                         {
                             var monitor = service.Peers.Monitor(key);
-                            return new EventsPanelTrunkCard(source, monitor);
+                            card = new EventsPanelTrunkCard(source, monitor);
                         }
                         else
-                            return new EventsPanelTrunkCard(source);
+                        {
+                            card = new EventsPanelTrunkCard(source);
+                        }
+                        break;
                     }
-                default: throw new NotImplementedException();
+                default: 
+                    throw new NotImplementedException();
             }
+        
+            // ✅ CORREÇÃO: Sincroniza channels ativos ao criar o card
+            // Isso garante que channels existentes sejam vinculados ao card imediatamente
+            SyncChannelsToCard(card, service);
+            
+            return card;
         }
 
 
         public static EventsPanelCard CardMonitor(this EventsPanelCardInfo source, EventsPanelService service)
         {
-            switch (source.Kind)
+            EventsPanelCard card;
+             
+             switch (source.Kind)
             {
                 case EventsPanelCardKind.QUEUE:
                     {
                         var key = source.GetQueueKey();
                         var monitor = service.Queues[key];
                         if (monitor != null)
-                            return new EventsPanelQueueCard(source, monitor);
-                        else throw new InvalidDataException($"invalid key: {key}, for queue.");
+                        {
+                            card = new EventsPanelQueueCard(source, monitor);
+                        }
+                        else 
+                        {
+                            throw new InvalidDataException($"invalid key: {key}, for queue.");
+                        }
+                        break;
                     }
                 case EventsPanelCardKind.PEER:
                     {
@@ -99,11 +144,19 @@ namespace Sufficit.Telephony.EventsPanel
                         {
                             var monitor = service.Peers[key];
                             if (monitor != null)
-                                return new EventsPanelPeerCard(source, monitor);
-                            else throw new InvalidDataException($"invalid key: {key}, for peer.");
+                            {
+                                card = new EventsPanelPeerCard(source, monitor);
+                            }
+                            else 
+                            {
+                                throw new InvalidDataException($"invalid key: {key}, for peer.");
+                            }
                         }
                         else
-                            return new EventsPanelPeerCard(source);
+                        {
+                            card = new EventsPanelPeerCard(source);
+                        }
+                        break;
                     }
                 case EventsPanelCardKind.TRUNK:
                     {
@@ -112,14 +165,27 @@ namespace Sufficit.Telephony.EventsPanel
                         {
                             var monitor = service.Peers[key];
                             if (monitor != null)
-                                return new EventsPanelTrunkCard(source, monitor);
-                            else throw new InvalidDataException($"invalid key: {key}, for trunk peer.");
+                            {
+                                card = new EventsPanelTrunkCard(source, monitor);
+                            }
+                            else 
+                            {
+                                throw new InvalidDataException($"invalid key: {key}, for trunk peer.");
+                            }
                         }
                         else
-                            return new EventsPanelTrunkCard(source);
+                        {
+                            card = new EventsPanelTrunkCard(source);
+                        }
+                        break;
                     }
-                default: throw new NotImplementedException();
+                default: 
+                    throw new NotImplementedException();
             }
+        
+            SyncChannelsToCard(card, service);
+            
+            return card;
         }
 
         public static T? Content<T>(this EventsPanelCard source) => (T?)source.Monitor?.Content;
