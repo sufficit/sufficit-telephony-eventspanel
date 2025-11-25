@@ -109,8 +109,7 @@ namespace Sufficit.Telephony.EventsPanel
                     throw new NotImplementedException();
             }
         
-            // ✅ CORREÇÃO: Sincroniza channels ativos ao criar o card
-            // Isso garante que channels existentes sejam vinculados ao card imediatamente
+
             SyncChannelsToCard(card, service);
             
             return card;
