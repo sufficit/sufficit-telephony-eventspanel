@@ -372,6 +372,9 @@ namespace Sufficit.Telephony.EventsPanel
         public override void Dispose()
         {
             _logger.LogWarning($"---------------------- DISPOSED AMI HUB CLIENT -------------------------");
+            
+            // Dispose síncrono - chama o DisposeAsync de forma síncrona
+            DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         private bool _disposed; // indicate that this object was disposed
@@ -381,12 +384,41 @@ namespace Sufficit.Telephony.EventsPanel
             _logger.LogWarning($"---------------------- DISPOSED ASYNC AMI HUB CLIENT -------------------------");            
             if (!_disposed)
             {
-                if (_hub != null)
-                    await _hub.DisposeAsync();
+                // Cancelar token de cancellation primeiro
+                if (_cts != null)
+                {
+                    _cts.Cancel();
+                    _cts.Dispose();
+                    _cts = null;
+                }
 
+                // Limpar event handlers
                 OnChanged = null;
+                _handlers.Registered -= HandlerRegistered;
 
-                // disposing options monitor
+                // Dispose do hub com timeout de segurança
+                if (_hub != null)
+                {
+                    try
+                    {
+                        HandlersClear(_hub);
+                        _hub.Remove(SYSTEM);
+                        
+                        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                        await _hub.StopAsync(timeoutCts.Token).ConfigureAwait(false);
+                        await _hub.DisposeAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Error disposing hub connection");
+                    }
+                    finally
+                    {
+                        _hub = null;
+                    }
+                }
+
+                // Dispose do monitor de opções
                 _monitor?.Dispose();
                                 
                 _disposed = true;
