@@ -32,10 +32,10 @@ namespace Sufficit.Telephony.EventsPanel
                     {
                         HandleChannelInfo(Content, channelInfoEvent);
 
-                        if (channelInfoEvent is QueueCallerAbandonEvent)
-                        {
-                            Content.Abandoned = true;
-                        }
+                        //if (channelInfoEvent is QueueCallerAbandonEvent)
+                        //{
+                        //    Content.Abandoned = true;
+                        //}
                     }
 
                     if (channelEvent is HangupEvent hangupEvent)
@@ -45,6 +45,16 @@ namespace Sufficit.Telephony.EventsPanel
                     else if (channelEvent is NewChannelEvent newChannelEvent)
                     {
                         HandleNewChannel(Content, newChannelEvent);
+                    }
+                    else if (channelEvent is MusicOnHoldStartEvent)
+                    {
+                        // Canal entrou em modo de espera
+                        Content.OnHold = true;
+                    }
+                    else if (channelEvent is MusicOnHoldStopEvent)
+                    {
+                        // Canal saiu do modo de espera
+                        Content.OnHold = false;
                     }
                 }
 

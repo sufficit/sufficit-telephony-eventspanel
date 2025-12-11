@@ -23,12 +23,12 @@ namespace Sufficit.Telephony.EventsPanel
             Count++;
             switch (@event)
             {
-                case QueueMemberStatusEvent newEvent:       Handle(Content, newEvent); break;
-                case QueueParamsEvent newEvent:             Handle(Content, newEvent); break;
-                case AbstractQueueMemberEvent newEvent:             Handle(Content, newEvent); break;
-                case QueueCallerJoinEvent newEvent:         Handle(Content, newEvent); break;
-                case QueueCallerLeaveEvent newEvent:        Handle(Content, newEvent); break;
-                case QueueCallerAbandonEvent newEvent:      Handle(Content, newEvent); break;
+                case QueueMemberStatusEvent newEvent: Handle(Content, newEvent); break;
+                case QueueParamsEvent newEvent: Handle(Content, newEvent); break;
+                case AbstractQueueMemberEvent newEvent: Handle(Content, newEvent); break;
+                case QueueCallerJoinEvent newEvent: Handle(Content, newEvent); break;
+                case QueueCallerLeaveEvent newEvent: Handle(Content, newEvent); break;
+                case QueueCallerAbandonEvent newEvent: Handle(Content, newEvent); break;
                 default: break;
             }
 
@@ -77,7 +77,7 @@ namespace Sufficit.Telephony.EventsPanel
                 source.Completed = eventObj.Completed;
                 source.Abandoned = eventObj.Abandoned;
                 source.ServiceLevel = eventObj.ServiceLevel;
-                source.Weight = eventObj.Weight;                
+                source.Weight = eventObj.Weight;
             }
         }
 

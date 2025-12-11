@@ -53,5 +53,10 @@ namespace Sufficit.Telephony.EventsPanel
         /// Queue abandoned
         /// </summary>
         public bool Abandoned { get; set; }
+
+        /// <summary>
+        /// Indicates if the channel is currently on hold (music on hold playing)
+        /// </summary>
+        public bool OnHold { get; set; }
     }
 }

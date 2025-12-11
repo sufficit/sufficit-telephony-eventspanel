@@ -21,33 +21,100 @@ namespace Sufficit.Telephony.EventsPanel
             Register();
         }
 
+        /// <summary>
+        /// Registers all Asterisk Manager Interface (AMI) event handlers for monitoring telephony operations.
+        /// Each registered event type triggers the appropriate handler to update the monitoring collections (Channels, Peers, Queues).
+        /// </summary>
         protected virtual void Register()
         {
+            // ============================================================================
+            // 🔐 AUTHENTICATION & SECURITY EVENTS
+            // ============================================================================
+            
+            // ✅ Authentication successful - AMI connection authenticated
             Register<SuccessfulAuthEvent>(IManagerEventHandler);
+      
+            // 🔐 Challenge sent - Challenge-response authentication initiated
             Register<ChallengeSentEvent>(IManagerEventHandler);
+            
+            // ❌ Invalid password - Login attempt with incorrect credentials
             Register<InvalidPasswordEvent>(IManagerEventHandler);
+            
+            // ❌ Challenge response failed - Failed to respond to authentication challenge
             Register<ChallengeResponseFailedEvent>(IManagerEventHandler);
 
+            // ============================================================================
+            // 📞 PEER EVENTS (Extensions/Devices)
+            // ============================================================================
+            
+            // 📊 Peer status changed - Extension availability updated (Available, Unavailable, Busy, Lagged, etc.)
             Register<PeerStatusEvent>(PeerStatusEventHandler);
 
+            // ============================================================================
+            // 🔔 CHANNEL EVENTS (Active Calls)
+            // ============================================================================
+            
+            // 🆕 New channel created - Call initiated (inbound or outbound)
             Register<NewChannelEvent>(IManagerEventHandler);
+    
+            // 🔄 Channel state changed - Call state transition (Ringing → Up → Busy, etc.)
             Register<NewStateEvent>(IManagerEventHandler);
+       
+            // 📴 Call hangup - Channel terminated (normal or abnormal)
             Register<HangupEvent>(IManagerEventHandler);
+            
+            // 📊 Channel status - Response to AMI 'Status' command
             Register<StatusEvent>(IManagerEventHandler);
+
+            // 📋 Peer entry - Response to 'SIPpeers' or 'IAXpeers' listing command
             Register<PeerEntryEvent>(IManagerEventHandler);
 
-            // events queue and channels
+            // ⏸️ Music on hold started - Channel placed on hold
+            Register<MusicOnHoldStartEvent>(IManagerEventHandler);
+  
+            // ▶️ Music on hold stopped - Channel taken off hold
+            Register<MusicOnHoldStopEvent>(IManagerEventHandler);
+
+            // ============================================================================
+            // 🎯 QUEUE EVENTS - CALLERS (Customers in Queue)
+            // ============================================================================
+   
+            // ➕ Customer joined queue - Call placed in waiting queue
             Register<QueueCallerJoinEvent>(IManagerEventHandler);
+          
+            // 🚪 Customer abandoned queue - Caller hung up before being answered
             Register<QueueCallerAbandonEvent>(IManagerEventHandler);
+    
+            // ➖ Customer left queue - Caller answered, removed by timeout, or transferred
             Register<QueueCallerLeaveEvent>(IManagerEventHandler);
 
+            // ============================================================================
+            // 👥 QUEUE EVENTS - MEMBERS (Agents/Attendants)
+            // ============================================================================
+         
+            // ➕ Agent added to queue - Extension joined as queue member
             Register<QueueMemberAddedEvent>(IManagerEventHandler);
+  
+            // ⏸️ Agent paused/unpaused - Member temporarily unavailable (coffee break, meeting, etc.)
             Register<QueueMemberPauseEvent>(IManagerEventHandler);
+         
+            // ⚖️ Agent penalty changed - Member priority adjusted (lower penalty = higher priority)
             Register<QueueMemberPenaltyEvent>(IManagerEventHandler);
+
+            // ➖ Agent removed from queue - Member unassigned from queue
             Register<QueueMemberRemovedEvent>(IManagerEventHandler);
+            
+            // 🔔 'Ringinuse' setting changed - Defines if busy members can receive new calls
             Register<QueueMemberRinginuseEvent>(IManagerEventHandler);
+  
+            // 📊 Agent status changed - Member availability updated (Available, Busy, Unavailable, In Call)
             Register<QueueMemberStatusEvent>(IManagerEventHandler);
 
+            // ============================================================================
+            // ⚙️ QUEUE EVENTS - CONFIGURATION
+            // ============================================================================
+          
+            // 🎛️ Queue parameters updated - Configuration changed (max wait time, strategy: rrmemory/leastrecent/etc., announce frequency)
             Register<QueueParamsEvent>(IManagerEventHandler);
         }
 

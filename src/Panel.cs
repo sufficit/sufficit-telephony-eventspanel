@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -52,7 +53,7 @@ namespace Sufficit.Telephony.EventsPanel
         {
             if (obj != null && Options.AutoFill)
             {
-                Cards.Add(obj); 
+                Cards.Add(obj);
                 OnChanged?.Invoke(this);
             }
         }
@@ -62,17 +63,20 @@ namespace Sufficit.Telephony.EventsPanel
             foreach (var key in cardKeys)
             {
                 var cards = Cards[key];
+
                 foreach (var card in cards)
                 {
                     if (card.Monitor != null)
+                    {
                         card.Monitor.Event(@event);
+                    }
 
                     if (@event is IChannelEvent channelEvent)
                     {
                         var channelKey = _service.Channels.HandleEvent(channelEvent);
-      
+
                         var channelMonitor = _service.Channels[channelEvent.Channel];
-              
+
                         if (channelMonitor != null && card.IsMatch(channelKey))
                         {
                             if (!card.Channels.Contains(channelMonitor))
@@ -97,7 +101,7 @@ namespace Sufficit.Telephony.EventsPanel
             }
         }
 
-        public virtual void Update(IEventsPanelOptions options) 
+        public virtual void Update(IEventsPanelOptions options)
         {
             if (options != null && !options.Equals(Options))
             {
@@ -105,7 +109,7 @@ namespace Sufficit.Telephony.EventsPanel
                 if (Options.AutoFill)
                 {
                     foreach (var card in _service.GetCards())
-                        if(!Cards.Contains(card))
+                        if (!Cards.Contains(card))
                             Cards.Add(card);
                 }
 
@@ -115,7 +119,7 @@ namespace Sufficit.Telephony.EventsPanel
 
         public virtual void Update(IEnumerable<EventsPanelCardInfo> cards, bool clear = false)
         {
-            if(clear) Cards.Clear();
+            if (clear) Cards.Clear();
 
             if (Options.AutoFill)
             {
@@ -129,7 +133,7 @@ namespace Sufficit.Telephony.EventsPanel
                 var cardMonitor = EventsPanelCardExtensions.CardCreate(card, _service);
                 if (!Cards.Contains(cardMonitor))
                     Cards.Add(cardMonitor);
-            }            
+            }
 
             OnChanged?.Invoke(this);
         }

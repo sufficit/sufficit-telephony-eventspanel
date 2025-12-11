@@ -26,7 +26,7 @@ namespace Sufficit.Telephony.EventsPanel
         /// Discagem (Dial) = Chave de agentes da fila de espera
         /// </summary>
         public string Interface { get; }
-        
+
         /// <summary>
         /// Tipo de agente ( estático ou dinamico )
         /// </summary>
@@ -56,11 +56,14 @@ namespace Sufficit.Telephony.EventsPanel
             {
                 Updated = timestamp;
                 if (@event is IQueueMemberEvent statusEvent)
+                {
                     Handle(this, statusEvent);
+                    ShouldUpdate = true;
+                }
             }
 
             if (ShouldUpdate && OnChanged != null)
-                OnChanged.Invoke(this, null);
+                OnChanged.Invoke(this, @event);
         }
 
         public static void Handle(QueueAgentInfo source, IQueueMemberEvent eventObj)
@@ -75,5 +78,6 @@ namespace Sufficit.Telephony.EventsPanel
             source.InCall = eventObj.InCall;
             source.PausedReason = eventObj.PausedReason;
         }
+
     }
 }
