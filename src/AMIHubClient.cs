@@ -373,8 +373,26 @@ namespace Sufficit.Telephony.EventsPanel
         {
             _logger.LogWarning($"---------------------- DISPOSED AMI HUB CLIENT -------------------------");
             
-            // Dispose síncrono - chama o DisposeAsync de forma síncrona
-            DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // FIX: Don't block thread pool - just register cleanup
+            // DisposeAsync will be called by GC finalizer or explicitly when possible
+            if (!_disposed)
+            {
+                _disposed = true;
+                _cts?.Cancel(); // Synchronous cancellation is safe
+                
+                // Fire and forget - não esperar
+                _ = Task.Run(async () => 
+                {
+                    try
+                    {
+                        await DisposeAsync().ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error during async disposal");
+                    }
+                });
+            }
         }
 
         private bool _disposed; // indicate that this object was disposed
