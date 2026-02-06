@@ -17,10 +17,10 @@ namespace Sufficit.Telephony.EventsPanel
 
         #region PRIVATE FIELDS
 
-      private readonly ILogger<EventsPanelClientService> _logger;
- private readonly IOptionsMonitor<EventsPanelServiceOptions> _optionsMonitor;
+        private readonly ILogger<EventsPanelClientService> _logger;
+        private readonly IOptionsMonitor<EventsPanelServiceOptions> _optionsMonitor;
         private HubConnection? _hubConnection;
-     private CancellationTokenSource? _cancellationTokenSource;
+        private CancellationTokenSource? _cancellationTokenSource;
         private EventsPanelServiceOptions? _options;
 
         #endregion
@@ -29,79 +29,79 @@ namespace Sufficit.Telephony.EventsPanel
         public EventsPanelClientService(
           ILogger<EventsPanelClientService> logger,
          IOptionsMonitor<EventsPanelServiceOptions> optionsMonitor)
- {
+        {
             _logger = logger;
-     _optionsMonitor = optionsMonitor;
+            _optionsMonitor = optionsMonitor;
             _options = optionsMonitor.CurrentValue;
-}
+        }
 
         #endregion
-      #region IEVENTSPANELSERVICE IMPLEMENTATION
+        #region IEVENTSPANELSERVICE IMPLEMENTATION
 
         public bool IsConfigured => _hubConnection != null;
 
         public async Task ExecuteAsync(CancellationToken cancellationToken)
-      {
+        {
             _cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
- try
-{
-  // TODO: Get SignalR hub URL from configuration
+            try
+            {
+                // TODO: Get SignalR hub URL from configuration
                 var hubUrl = "https://localhost:5001/hubs/eventspanel"; // Temporary - should come from config
 
-     _logger.LogInformation("Connecting to EventsPanel Hub at {HubUrl}", hubUrl);
+                _logger.LogInformation("Connecting to EventsPanel Hub at {HubUrl}", hubUrl);
 
-      _hubConnection = new HubConnectionBuilder()
-       .WithUrl(hubUrl, options =>
-              {
-     // TODO: Configure authentication token
-     // options.AccessTokenProvider = async () => await GetAccessTokenAsync();
-   })
-          .WithAutomaticReconnect()
-       .Build();
+                _hubConnection = new HubConnectionBuilder()
+                 .WithUrl(hubUrl, options =>
+                        {
+                            // TODO: Configure authentication token
+                            // options.AccessTokenProvider = async () => await GetAccessTokenAsync();
+                        })
+                    .WithAutomaticReconnect()
+                 .Build();
 
-        // Register event handlers
-     RegisterEventHandlers();
+                // Register event handlers
+                RegisterEventHandlers();
 
-  // Connect to hub
-     await _hubConnection.StartAsync(_cancellationTokenSource.Token);
+                // Connect to hub
+                await _hubConnection.StartAsync(_cancellationTokenSource.Token);
 
-  _logger.LogInformation("Connected to EventsPanel Hub successfully");
+                _logger.LogInformation("Connected to EventsPanel Hub successfully");
 
-   // TODO: Request user permissions/filters from server
-             // await RequestUserPermissionsAsync();
+                // TODO: Request user permissions/filters from server
+                // await RequestUserPermissionsAsync();
 
-     // Keep connection alive
- await Task.Delay(Timeout.Infinite, _cancellationTokenSource.Token);
+                // Keep connection alive
+                await Task.Delay(Timeout.Infinite, _cancellationTokenSource.Token);
             }
             catch (OperationCanceledException)
-   {
-      _logger.LogInformation("EventsPanelClientService cancelled");
-    }
-       catch (Exception ex)
-       {
-   _logger.LogError(ex, "Error in EventsPanelClientService");
-       throw;
+            {
+                _logger.LogInformation("EventsPanelClientService cancelled");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in EventsPanelClientService");
+                throw;
             }
         }
 
-      #endregion
-      #region EVENT HANDLERS
+        #endregion
+        #region EVENT HANDLERS
 
- private void RegisterEventHandlers()
+        private void RegisterEventHandlers()
         {
-    if (_hubConnection == null) return;
+            if (_hubConnection == null) return;
 
-   // TODO: Register handlers for events from server
+            // TODO: Register handlers for events from server
             // Example:
             // _hubConnection.On<EventsPanelCard>("CardUpdated", OnCardUpdated);
             // _hubConnection.On<EventsPanelCard>("CardAdded", OnCardAdded);
-      // _hubConnection.On<string>("CardRemoved", OnCardRemoved);
+            // _hubConnection.On<string>("CardRemoved", OnCardRemoved);
 
             _logger.LogTrace("Event handlers registered");
         }
 
-      // TODO: Implement event handler methods
+        // TODO: Implement event handler methods
         // private void OnCardUpdated(EventsPanelCard card) { ... }
         // private void OnCardAdded(EventsPanelCard card) { ... }
         // private void OnCardRemoved(string cardId) { ... }
@@ -113,43 +113,43 @@ namespace Sufficit.Telephony.EventsPanel
         /// Request user permissions from server
         /// Server will filter events based on user's access rights
         /// </summary>
-        private async Task RequestUserPermissionsAsync()
-        {
-if (_hubConnection == null) return;
+        //private async Task RequestUserPermissionsAsync()
+        //{
+        //    if (_hubConnection == null) return;
 
-        try
-            {
-        // TODO: Call server endpoint to get user permissions
-     // Example:
-   // var permissions = await _hubConnection.InvokeAsync<UserPermissions>("GetUserPermissions");
-                // Apply permissions to filter local events
+        //    try
+        //    {
+        //        // TODO: Call server endpoint to get user permissions
+        //        // Example:
+        //        // var permissions = await _hubConnection.InvokeAsync<UserPermissions>("GetUserPermissions");
+        //        // Apply permissions to filter local events
 
-         _logger.LogInformation("User permissions requested from server");
-            }
-    catch (Exception ex)
- {
-   _logger.LogError(ex, "Error requesting user permissions");
-      }
-        }
+        //        _logger.LogInformation("User permissions requested from server");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error requesting user permissions");
+        //    }
+        //}
 
         #endregion
- #region DISPOSE
+        #region DISPOSE
 
         public async ValueTask DisposeAsync()
-      {
-       _cancellationTokenSource?.Cancel();
+        {
+            _cancellationTokenSource?.Cancel();
             _cancellationTokenSource?.Dispose();
 
             if (_hubConnection != null)
-      {
-       await _hubConnection.StopAsync();
-    await _hubConnection.DisposeAsync();
-       }
+            {
+                await _hubConnection.StopAsync();
+                await _hubConnection.DisposeAsync();
+            }
 
-    _logger.LogInformation("EventsPanelClientService disposed");
+            _logger.LogInformation("EventsPanelClientService disposed");
         }
 
-     #endregion
+        #endregion
 
     }
 }
