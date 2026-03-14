@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http.Connections.Client;
+using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -203,6 +204,11 @@ namespace Sufficit.Telephony.EventsPanel
         protected void HttpConnectionBuilder(HttpConnectionOptions options)
         {            
             options.AccessTokenProvider = async () => await AccessTokenProvider!;
+
+            // Avoid WebSockets for server-to-server raw hub connections.
+            // Some environments close the websocket during SignalR handshake with InternalServerError.
+            options.Transports = HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
+
             options.HttpMessageHandlerFactory = (message) =>
             {
                 if (message is HttpClientHandler clientHandler)
