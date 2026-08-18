@@ -205,9 +205,13 @@ namespace Sufficit.Telephony.EventsPanel
         {            
             options.AccessTokenProvider = async () => await AccessTokenProvider!;
 
-            // Avoid WebSockets for server-to-server raw hub connections.
-            // Some environments close the websocket during SignalR handshake with InternalServerError.
-            options.Transports = HttpTransportType.ServerSentEvents | HttpTransportType.LongPolling;
+            // WebSockets first, LongPolling as fallback. The earlier handshake
+            // InternalServerError (a167cf0) came from NGINX serving /asterisk through a
+            // location with no upgrade proxy; that location now forwards Upgrade/Connection
+            // like the proven /amihub one (ISSUE-20260815 P2-3), and a real WS handshake
+            // plus live AMI events over WSS were verified against production before this
+            // change. ServerSentEvents stays out — NGINX exposes no SSE proxy for this hub.
+            options.Transports = HttpTransportType.WebSockets | HttpTransportType.LongPolling;
 
             options.HttpMessageHandlerFactory = (message) =>
             {
