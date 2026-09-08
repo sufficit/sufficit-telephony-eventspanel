@@ -2,7 +2,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	
 	<PropertyGroup Label="Sufficit Targeting">
-		<TargetFramework>net9.0</TargetFramework>
+		<TargetFrameworks>net9.0;net10.0</TargetFrameworks>
 		<RootNamespace>Sufficit.Telephony.EventsPanel</RootNamespace>
 		<Configurations>Debug;Release</Configurations>
 	</PropertyGroup>
@@ -70,6 +70,13 @@
 		<ImplicitUsings>enable</ImplicitUsings>
 	</PropertyGroup>
 
+	<PropertyGroup Label="Sufficit Versioning Options" Condition=" '$(TargetFramework)' == 'net10.0' ">
+		<PkgVersion>[10.*,11.0.0)</PkgVersion>
+		<LangVersion>12.0</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+	</PropertyGroup>
+
 	<!-- #endregion -->
 	
 	<ItemGroup>
@@ -78,9 +85,7 @@
 		<PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="$(PkgVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="$(PkgVersion)" />
 		<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="$(PkgVersion)" />
-		<PackageReference Include="System.Collections.NonGeneric" Version="4.3.0" />
 		<PackageReference Include="System.Runtime.Caching" Version="$(PkgVersion)" />
-		<PackageReference Include="System.Text.Json" Version="$(PkgVersion)" />
 	</ItemGroup>
 	
 	<ItemGroup Label="Sufficit Dependencies">
